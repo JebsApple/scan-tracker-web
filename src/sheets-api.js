@@ -24,7 +24,9 @@ async function authedFetch(url, options = {}) {
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new Error(`Sheets API HTTP ${res.status}: ${body.slice(0, 200)}`);
+    const err = new Error(`Sheets API HTTP ${res.status}: ${body.slice(0, 200)}`);
+    err.status = res.status;
+    throw err;
   }
   return res.json();
 }

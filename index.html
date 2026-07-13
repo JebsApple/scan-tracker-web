@@ -111,6 +111,15 @@ td.del button:hover{color:var(--red)}
 #toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--red);padding:9px 18px;border-radius:8px;font-size:13px;opacity:0;pointer-events:none;transition:.25s;z-index:60}
 #toast.show{opacity:1}
 @media(max-width:760px){#side{width:200px;min-width:200px}.stage input[type=text]{width:64px}}
+@media(max-width:600px){
+  #top{padding:8px 10px;gap:8px}
+  #fBusca{width:110px}
+  #main{flex-direction:column}
+  #side{width:100%;min-width:0;max-height:140px;border-right:none;border-bottom:1px solid var(--line)}
+  #serieHead h2{font-size:19px}
+  .stage{min-width:100px}
+  .stage input[type=text]{width:56px}
+}
 </style>
 </head>
 <body>
@@ -169,6 +178,18 @@ const norm=s=>(s||"").trim().toLowerCase();
 const esMio=n=>n&&S.aliases.some(a=>norm(a)===norm(n));
 const prioClass=p=>p==="URGENTE"?"URGENTE":p==="MODERADO"?"MODERADO":"ATU";
 const PRIOS=["URGENTE","MODERADO","A TU TIEMPO"];
+
+// Traduce errores de red/API a mensajes accionables. gvizUrl (fetch nativo)
+// no trae `.status` estructurado, se extrae del prefijo "HTTP <code>".
+function friendlyError(e){
+  const status=e?.status??Number((String(e?.message||"").match(/HTTP (\d+)/)||[])[1]);
+  if(status===401)return"Sesión de Google vencida — reconectá en 'Conectar Google'";
+  if(status===403)return"Sin permiso para esta hoja — revisá que tu cuenta de Google tenga acceso";
+  if(status===404)return"Hoja no encontrada — revisá la URL (¿la borraron o cambiaron el gid?)";
+  if(status===429)return"Límite de solicitudes de Google alcanzado — esperá un minuto y reintentá";
+  if(!navigator.onLine)return"Sin conexión a internet";
+  return e?.message||"Error desconocido";
+}
 
 /* ============ NOTIFICACIONES DE DESIGNACIÓN ============ */
 function notifyDesignation(serieName,capNum,etapaLabel){
@@ -260,27 +281,27 @@ const COLW={trad:["C","D"],limp:["E","F"],typ:["G","H"],corr:["I","J"],sube:["K"
 async function pushCell(sr,ch,col,val){
   if(!sr?.api||!ch.srcRow)return;
   try{await apiWriteCell(sr.sheetUrl,sr._title,col+ch.srcRow,String(val))}
-  catch(e){toast("No se pudo escribir: "+e.message)}
+  catch(e){toast("No se pudo escribir: "+friendlyError(e))}
 }
 async function pushNewRow(sr,ch){
   if(!sr?.api)return;
   try{const row=await apiAppendRow(sr.sheetUrl,sr._title,
     [ch.num,ch.prio,"",false,"",false,"",false,"",false,"",false]);
     if(row>0)ch.srcRow=row;
-  }catch(e){toast("No se pudo agregar fila: "+e.message)}
+  }catch(e){toast("No se pudo agregar fila: "+friendlyError(e))}
 }
 async function pushDelRow(sr,ch){
   if(!sr?.api||!ch.srcRow)return;
   try{await apiDeleteRow(sr.sheetUrl,sr._gid,ch.srcRow);
     sr.chapters.forEach(c=>{if(c.srcRow>ch.srcRow)c.srcRow--});
-  }catch(e){toast("No se pudo borrar fila: "+e.message)}
+  }catch(e){toast("No se pudo borrar fila: "+friendlyError(e))}
 }
 
 async function fetchSheet(sr){
   if(S.clientId&&isSignedIn()){try{await apiFetchSheet(sr);return}catch(e){if(sr.api)throw e}}
   sr.api=false;
   const u=gvizUrl(sr.sheetUrl);if(!u)throw new Error("URL inválida");
-  const res=await fetch(u);if(!res.ok)throw new Error("HTTP "+res.status);
+  const res=await fetch(u);if(!res.ok){const err=new Error("HTTP "+res.status);err.status=res.status;throw err}
   const chs=csvToChapters(parseCSV(await res.text()));
   if(chs.length)sr.chapters=chs;
   sr.lastSync=new Date().toLocaleTimeString();
@@ -288,10 +309,10 @@ async function fetchSheet(sr){
 async function syncAll(manual){
   const linked=S.series.filter(s=>s.sheetUrl);
   if(!linked.length){if(manual)toast("Ninguna serie vinculada a Google Sheets");return}
-  let ok=0,err=0;
-  for(const sr of linked){try{await fetchSheet(sr);checkDesignations(sr);ok++}catch(e){err++}}
+  let ok=0,err=0,lastErr="";
+  for(const sr of linked){try{await fetchSheet(sr);checkDesignations(sr);ok++}catch(e){err++;lastErr=friendlyError(e)}}
   save();render();
-  toast(`Sync: ${ok} ok${err?`, ${err} con error`:""}`);
+  toast(`Sync: ${ok} ok${err?`, ${err} con error (${lastErr})`:""}`);
 }
 setInterval(()=>syncAll(false),5*60*1000); // auto-sync cada 5 min
 
@@ -415,7 +436,7 @@ function modalSerie(){
       for(let i=1;i<=n;i++)sr.chapters.push(nuevoCap(String(i)));
     }else if(v==="gsheet"){
       sr.sheetUrl=document.getElementById("snUrl").value.trim();
-      try{await fetchSheet(sr);checkDesignations(sr)}catch(e){toast("No se pudo leer la hoja: "+e.message)}
+      try{await fetchSheet(sr);checkDesignations(sr)}catch(e){toast("No se pudo leer la hoja: "+friendlyError(e))}
     }else if(v==="paste"){
       sr.chapters=csvToChapters(parseCSV(document.getElementById("snPaste").value));
     }else if(v==="file"&&pendingFileCSV){
