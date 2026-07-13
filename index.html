@@ -65,6 +65,7 @@ th{position:sticky;top:0;background:var(--bg);font-family:var(--disp);font-size:
 td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
 tr:hover td{background:rgba(255,255,255,.02)}
 tr.mine td{background:var(--red-soft)}
+tr.urgent td:first-child{box-shadow:inset 3px 0 0 var(--red)}
 td.cap{font-family:var(--mono);font-weight:700;font-size:13px}
 .prio{font-size:10.5px;font-weight:700;letter-spacing:.06em;padding:3px 8px;border-radius:4px;text-transform:uppercase;cursor:pointer;white-space:nowrap}
 .prio.URGENTE{background:rgba(224,50,47,.18);color:#ff6b69}
@@ -98,6 +99,15 @@ td.del button:hover{color:var(--red)}
 .tag button{color:var(--mut);font-size:13px}
 .tag button:hover{color:var(--red)}
 .mrow{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+.dashGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:16px}
+.dashCard{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px}
+.dashCard .n{font-family:var(--disp);font-size:26px;font-weight:700}
+.dashCard .l{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+.dashCard.warn .n{color:var(--warn)}
+.dashCard.urg .n{color:#ff6b69}
+.dashTbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.dashTbl th{text-align:left;color:var(--mut);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--line);font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+.dashTbl td{padding:6px 8px;border-bottom:1px solid var(--line)}
 #toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--red);padding:9px 18px;border-radius:8px;font-size:13px;opacity:0;pointer-events:none;transition:.25s;z-index:60}
 #toast.show{opacity:1}
 @media(max-width:760px){#side{width:200px;min-width:200px}.stage input[type=text]{width:64px}}
@@ -123,6 +133,7 @@ td.del button:hover{color:var(--red)}
   <div class="sp"></div>
   <button class="btn" id="bGoogle">Conectar Google</button>
   <button class="btn" id="bSync" title="Recargar hojas vinculadas de Google">⟳ Sincronizar</button>
+  <button class="btn" id="bDash">📊 Dashboard</button>
   <button class="btn" id="bCfg">⚙ Mis nombres</button>
 </div>
 
@@ -148,7 +159,8 @@ import { readSheet, writeCell as apiWriteCell, appendRow as apiAppendRow, delete
 
 /* ============ ESTADO ============ */
 const ETAPAS=[["trad","Traducción"],["limp","Limpieza"],["typ","Typeo"],["corr","Corrección"],["sube","Sube"]];
-let S=load()||{aliases:[],series:[],sel:null,clientId:"",filters:{mine:false,prio:"",estado:"",busca:""}};
+let S=load()||{aliases:[],series:[],sel:null,clientId:"",filters:{mine:false,prio:"",estado:"",busca:""},whoSnapshot:{}};
+S.whoSnapshot=S.whoSnapshot||{};
 function save(){try{localStorage.setItem("scantracker",JSON.stringify(S))}catch(e){}}
 function load(){try{return JSON.parse(localStorage.getItem("scantracker"))}catch(e){return null}}
 function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2200)}
@@ -157,6 +169,39 @@ const norm=s=>(s||"").trim().toLowerCase();
 const esMio=n=>n&&S.aliases.some(a=>norm(a)===norm(n));
 const prioClass=p=>p==="URGENTE"?"URGENTE":p==="MODERADO"?"MODERADO":"ATU";
 const PRIOS=["URGENTE","MODERADO","A TU TIEMPO"];
+
+/* ============ NOTIFICACIONES DE DESIGNACIÓN ============ */
+function notifyDesignation(serieName,capNum,etapaLabel){
+  const title="Te asignaron un capítulo";
+  const body=`${serieName} — Cap. ${capNum} (${etapaLabel})`;
+  if(!("Notification" in window)){toast(`${title}: ${body}`);return}
+  if(Notification.permission==="granted"){new Notification(title,{body});return}
+  if(Notification.permission==="denied"){toast(`${title}: ${body}`);return}
+  Notification.requestPermission().then(perm=>{
+    if(perm==="granted")new Notification(title,{body});
+    else toast(`${title}: ${body}`);
+  }).catch(()=>toast(`${title}: ${body}`));
+}
+// Compara el estado actual de who-por-etapa contra el snapshot guardado en S.
+// Solo notifica cuando mi alias aparece donde antes NO estaba (no en la primera carga,
+// ya que sin snapshot previo solo se establece la línea base).
+function checkDesignations(sr){
+  const prev=S.whoSnapshot[sr.id];
+  const cur={};
+  sr.chapters.forEach(c=>ETAPAS.forEach(([k])=>{cur[`${c.num}|${k}`]=norm(c[k].who)}));
+  if(prev){
+    Object.keys(cur).forEach(key=>{
+      const wasMine=esMio(prev[key]||"");
+      const isMine=esMio(cur[key]);
+      if(!wasMine&&isMine){
+        const[num,etk]=key.split("|");
+        const etLabel=(ETAPAS.find(([k])=>k===etk)||[])[1]||etk;
+        notifyDesignation(sr.name,num,etLabel);
+      }
+    });
+  }
+  S.whoSnapshot[sr.id]=cur;
+}
 
 if(S.clientId){try{initAuth(S.clientId)}catch(e){}}
 
@@ -244,7 +289,7 @@ async function syncAll(manual){
   const linked=S.series.filter(s=>s.sheetUrl);
   if(!linked.length){if(manual)toast("Ninguna serie vinculada a Google Sheets");return}
   let ok=0,err=0;
-  for(const sr of linked){try{await fetchSheet(sr);ok++}catch(e){err++}}
+  for(const sr of linked){try{await fetchSheet(sr);checkDesignations(sr);ok++}catch(e){err++}}
   save();render();
   toast(`Sync: ${ok} ok${err?`, ${err} con error`:""}`);
 }
@@ -309,6 +354,30 @@ function modalGoogle(){
   st();
 }
 
+function modalDashboard(){
+  const totalSeries=S.series.length;
+  let totalCaps=0,totalDone=0,totalUrg=0;
+  const rows=S.series.map(sr=>{
+    const caps=sr.chapters.length;
+    const done=sr.chapters.filter(capCompleto).length;
+    const urg=sr.chapters.filter(c=>c.prio==="URGENTE"&&!capCompleto(c)).length;
+    totalCaps+=caps;totalDone+=done;totalUrg+=urg;
+    return `<tr><td>${esc(sr.name)}</td><td>${done}/${caps}</td><td>${caps?Math.round(done/caps*100):0}%</td>
+      <td>${urg?`<span style="color:#ff6b69;font-weight:700">${urg}</span>`:"—"}</td></tr>`;
+  }).join("");
+  openM(`<h3>Dashboard</h3>
+  <div class="dashGrid">
+    <div class="dashCard"><div class="n">${totalSeries}</div><div class="l">Series activas</div></div>
+    <div class="dashCard"><div class="n">${totalDone}/${totalCaps}</div><div class="l">Capítulos completos</div></div>
+    <div class="dashCard warn"><div class="n">${totalCaps?Math.round(totalDone/totalCaps*100):0}%</div><div class="l">Progreso general</div></div>
+    <div class="dashCard urg"><div class="n">${totalUrg}</div><div class="l">Urgentes pendientes</div></div>
+  </div>
+  <table class="dashTbl"><thead><tr><th>Serie</th><th>Completos</th><th>Progreso</th><th>Urgentes</th></tr></thead>
+  <tbody>${rows||`<tr><td colspan="4" style="color:var(--mut)">Sin series aún.</td></tr>`}</tbody></table>
+  <div class="mrow"><button class="btn" id="dashClose">Cerrar</button></div>`);
+  document.getElementById("dashClose").onclick=closeM;
+}
+
 function modalSerie(){
   openM(`<h3>Nueva serie</h3>
   <div class="fld"><label>Nombre</label><input id="snName" placeholder="Teto x Egen"></div>
@@ -346,7 +415,7 @@ function modalSerie(){
       for(let i=1;i<=n;i++)sr.chapters.push(nuevoCap(String(i)));
     }else if(v==="gsheet"){
       sr.sheetUrl=document.getElementById("snUrl").value.trim();
-      try{await fetchSheet(sr)}catch(e){toast("No se pudo leer la hoja: "+e.message)}
+      try{await fetchSheet(sr);checkDesignations(sr)}catch(e){toast("No se pudo leer la hoja: "+e.message)}
     }else if(v==="paste"){
       sr.chapters=csvToChapters(parseCSV(document.getElementById("snPaste").value));
     }else if(v==="file"&&pendingFileCSV){
@@ -421,7 +490,10 @@ function render(){
         <button class="ck ${st.done?"done":me?"pend-me":""}" title="${st.done?"Listo":"Pendiente"}" data-tg="${sr.id}|${c.id}|${k}">✓</button>
         <input type="text" class="${me?"me":""}" value="${esc(st.who)}" placeholder="—" data-who="${sr.id}|${c.id}|${k}">
       </div></td>`}).join("");
-    return `<tr class="${mine&&S.filters.mine?"":mine?"mine":""}">
+    const rowClasses=[];
+    if(mine&&!S.filters.mine)rowClasses.push("mine");
+    if(c.prio==="URGENTE"&&!capCompleto(c))rowClasses.push("urgent");
+    return `<tr class="${rowClasses.join(" ")}">
       <td class="cap">${esc(c.num)}</td>
       <td><span class="prio ${prioClass(c.prio)}" title="Click para cambiar" data-cycleprio="${sr.id}|${c.id}">${esc(c.prio||"—")}</span></td>
       ${cells}
@@ -473,6 +545,7 @@ document.getElementById("fPrio").onchange=e=>{S.filters.prio=e.target.value;save
 document.getElementById("fEstado").onchange=e=>{S.filters.estado=e.target.value;save();render()};
 document.getElementById("fBusca").oninput=e=>{S.filters.busca=e.target.value;render()};
 document.getElementById("bCfg").onclick=modalAliases;
+document.getElementById("bDash").onclick=modalDashboard;
 document.getElementById("bGoogle").onclick=modalGoogle;
 document.getElementById("bAddSerie").onclick=modalSerie;
 document.getElementById("bSync").onclick=()=>syncAll(true);
