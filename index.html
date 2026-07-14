@@ -243,17 +243,35 @@ function paintUndoRedo(){
   if(!bu||!br)return;
   bu.disabled=historyIndex<=0;br.disabled=historyIndex>=history.length-1;
 }
-function undo(){
+// Deshacer/rehacer NUNCA debe dejar sr.srcRow (fila real en el Sheet)
+// desalineado con lo que hay escrito de verdad — si eso pasa, la próxima
+// escritura (pushCell) apunta a la fila equivocada y corrompe datos de otra
+// persona. Por eso, tras cualquier undo/redo, toda serie vinculada a Sheets
+// se re-sincroniza desde la fuente real en vez de confiar en el snapshot: el
+// undo revierte cosas puramente locales (alias, ocultos, filtros, historial)
+// con certeza; para capítulos de una serie con Sheets, gana siempre el dato
+// remoto real, nunca el snapshot.
+async function resyncLinkedSeries(){
+  for(const sr of S.series.filter(s=>s.sheetUrl)){
+    try{await fetchSheet(sr);checkDesignations(sr)}catch(e){/* sin conexión: se queda con lo último conocido */}
+  }
+  save();
+}
+async function undo(){
   if(historyIndex<=0)return toast("Nada para deshacer");
   historyIndex--;S=JSON.parse(history[historyIndex]);
   try{localStorage.setItem("scantracker",JSON.stringify(S))}catch(e){}
-  render();paintG();paintUndoRedo();toast("Deshecho (solo local, no revierte lo ya escrito en Sheets)");
+  render();paintG();paintUndoRedo();
+  toast("Deshecho — re-sincronizando series con Sheets...");
+  await resyncLinkedSeries();render();paintUndoRedo();
 }
-function redo(){
+async function redo(){
   if(historyIndex>=history.length-1)return toast("Nada para rehacer");
   historyIndex++;S=JSON.parse(history[historyIndex]);
   try{localStorage.setItem("scantracker",JSON.stringify(S))}catch(e){}
-  render();paintG();paintUndoRedo();toast("Rehecho");
+  render();paintG();paintUndoRedo();
+  toast("Rehecho — re-sincronizando series con Sheets...");
+  await resyncLinkedSeries();render();paintUndoRedo();
 }
 function save(){try{localStorage.setItem("scantracker",JSON.stringify(S))}catch(e){}pushHistory();}
 function load(){try{return JSON.parse(localStorage.getItem("scantracker"))}catch(e){return null}}
