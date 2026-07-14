@@ -143,6 +143,7 @@ td.del button:hover{color:var(--red)}
   <button class="btn" id="bGoogle">Conectar Google</button>
   <button class="btn" id="bSync" title="Recargar hojas vinculadas de Google">⟳ Sincronizar</button>
   <button class="btn" id="bDash">📊 Dashboard</button>
+  <button class="btn" id="bHist">🕘 Mi historial</button>
   <button class="btn" id="bCfg">⚙ Mis nombres</button>
 </div>
 
@@ -169,8 +170,10 @@ import { readSheet, writeCell as apiWriteCell, appendRow as apiAppendRow, delete
 /* ============ ESTADO ============ */
 const ETAPAS=[["trad","Traducción"],["limp","Limpieza"],["typ","Typeo"],["corr","Corrección"],["sube","Sube"]];
 const DEFAULT_CLIENT_ID="50665049250-ipcmj3jr7fakbmabk2tq32ea1nh3id1o.apps.googleusercontent.com";
-let S=load()||{aliases:[],series:[],sel:null,clientId:DEFAULT_CLIENT_ID,filters:{mine:false,prio:"",estado:"",busca:""},whoSnapshot:{}};
+let S=load()||{aliases:[],series:[],sel:null,clientId:DEFAULT_CLIENT_ID,filters:{mine:false,prio:"",estado:"",busca:""},whoSnapshot:{},historial:[],startedAt:{}};
 S.whoSnapshot=S.whoSnapshot||{};
+S.historial=S.historial||[];
+S.startedAt=S.startedAt||{};
 if(!S.clientId)S.clientId=DEFAULT_CLIENT_ID;
 function save(){try{localStorage.setItem("scantracker",JSON.stringify(S))}catch(e){}}
 function load(){try{return JSON.parse(localStorage.getItem("scantracker"))}catch(e){return null}}
@@ -401,6 +404,27 @@ function modalDashboard(){
   document.getElementById("dashClose").onclick=closeM;
 }
 
+function fmtDur(ms){
+  if(ms==null)return"—";
+  const h=Math.round(ms/3600000);
+  if(h<1)return"<1h";
+  if(h<24)return h+"h";
+  return Math.round(h/24)+"d";
+}
+function modalHistorial(){
+  const rows=S.historial.slice(0,100).map(h=>{
+    const f=new Date(h.fecha);
+    return `<tr><td>${f.toLocaleDateString()} ${f.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</td>
+      <td>${esc(h.serie)}</td><td>${esc(h.cap)}</td><td>${esc(h.etapa)}</td><td>${fmtDur(h.durMs)}</td></tr>`;
+  }).join("");
+  openM(`<h3>Mi historial</h3>
+  <div class="fld"><div class="hint">Capítulos que completaste vos, más recientes primero. "Duración" es desde que se te asignó hasta que marcaste listo.</div></div>
+  <table class="dashTbl"><thead><tr><th>Fecha</th><th>Serie</th><th>Cap</th><th>Etapa</th><th>Duración</th></tr></thead>
+  <tbody>${rows||`<tr><td colspan="5" style="color:var(--mut)">Todavía no completaste nada.</td></tr>`}</tbody></table>
+  <div class="mrow"><button class="btn" id="histClose">Cerrar</button></div>`);
+  document.getElementById("histClose").onclick=closeM;
+}
+
 function modalSerie(){
   openM(`<h3>Nueva serie</h3>
   <div class="fld"><label>Nombre</label><input id="snName" placeholder="Teto x Egen"></div>
@@ -531,9 +555,22 @@ function render(){
 /* ============ ACCIONES (delegadas — sin globals inline) ============ */
 function selSerie(id){S.sel=id;save();render()}
 function tg(s,c,k){const sr=S.series.find(x=>x.id===s),ch=sr.chapters.find(x=>x.id===c);
-  ch[k].done=!ch[k].done;save();render();pushCell(sr,ch,COLW[k][1],ch[k].done?"TRUE":"FALSE")}
+  ch[k].done=!ch[k].done;
+  const startKey=`${sr.id}|${ch.num}|${k}`;
+  if(ch[k].done&&esMio(ch[k].who)){
+    const t0=S.startedAt[startKey];
+    S.historial.unshift({fecha:new Date().toISOString(),serie:sr.name,cap:ch.num,
+      etapa:(ETAPAS.find(([kk])=>kk===k)||[])[1]||k,
+      durMs:t0?Date.now()-t0:null});
+    delete S.startedAt[startKey];
+  }else if(!ch[k].done){delete S.startedAt[startKey]}
+  save();render();pushCell(sr,ch,COLW[k][1],ch[k].done?"TRUE":"FALSE")}
 function setWho(s,c,k,v){const sr=S.series.find(x=>x.id===s),ch=sr.chapters.find(x=>x.id===c);
-  ch[k].who=v.trim();save();render();pushCell(sr,ch,COLW[k][0],ch[k].who)}
+  const startKey=`${sr.id}|${ch.num}|${k}`;
+  const wasMine=esMio(ch[k].who);
+  ch[k].who=v.trim();
+  if(!wasMine&&esMio(ch[k].who)&&!ch[k].done)S.startedAt[startKey]=Date.now();
+  save();render();pushCell(sr,ch,COLW[k][0],ch[k].who)}
 function cyclePrio(s,c){const sr=S.series.find(x=>x.id===s),ch=sr.chapters.find(x=>x.id===c);
   ch.prio=PRIOS[(PRIOS.indexOf(ch.prio)+1)%PRIOS.length];save();render();pushCell(sr,ch,"B",ch.prio)}
 function addCap(s){const sr=S.series.find(x=>x.id===s);
@@ -569,6 +606,7 @@ document.getElementById("fEstado").onchange=e=>{S.filters.estado=e.target.value;
 document.getElementById("fBusca").oninput=e=>{S.filters.busca=e.target.value;render()};
 document.getElementById("bCfg").onclick=modalAliases;
 document.getElementById("bDash").onclick=modalDashboard;
+document.getElementById("bHist").onclick=modalHistorial;
 document.getElementById("bGoogle").onclick=modalGoogle;
 document.getElementById("bAddSerie").onclick=modalSerie;
 document.getElementById("bSync").onclick=()=>syncAll(true);
