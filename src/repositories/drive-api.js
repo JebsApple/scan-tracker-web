@@ -3,7 +3,7 @@
 // ir a buscar la URL a Drive y pegarla a mano. Nunca lee contenido de
 // archivos — eso sigue yendo por Sheets API (sheets-api.js).
 
-import { getAccessToken } from "./auth.js";
+import { getAccessToken } from "./auth-facade.js";
 
 const BASE = "https://www.googleapis.com/drive/v3/files";
 

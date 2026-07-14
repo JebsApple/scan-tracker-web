@@ -6,7 +6,7 @@ import {
   signOut as gSignOut,
   fetchEmail,
   DEFAULT_CLIENT_ID,
-} from "../repositories/auth.js";
+} from "../repositories/auth-facade.js";
 import { listSheetTabs, listSharedSheets } from "../repositories/sheets-repository.js";
 import { fetchSheet, checkDesignations, syncAll } from "../services/sync-service.js";
 import { etapasDe, csvToChapters, nuevoCap } from "../services/etapas-service.js";
@@ -101,10 +101,10 @@ export function modalGoogle() {
   document.getElementById("gClose").onclick = closeM;
   document.getElementById("gInB").onclick = async () => {
     const b = document.getElementById("gInB");
-    b.textContent = "Abriendo popup de Google...";
+    b.textContent = "Conectando con Google...";
     b.disabled = true;
     try {
-      initAuth(DEFAULT_CLIENT_ID); // idempotente, defensivo por si el init inicial falló en silencio
+      await initAuth(DEFAULT_CLIENT_ID); // idempotente, defensivo por si el init inicial falló en silencio
       await requestToken();
       await refreshGoogleSession();
       st();

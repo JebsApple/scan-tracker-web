@@ -25,7 +25,8 @@
     "@capacitor/core": "^8.4.1"
   },
   "dependencies": {
-    "@capacitor/background-runner": "^3.0.0"
+    "@capacitor/background-runner": "^3.0.0",
+    "@capawesome/capacitor-google-sign-in": "^0.1.2"
   },
   "allowScripts": {
     "@capacitor/background-runner@3.0.0": true

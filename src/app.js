@@ -1,4 +1,4 @@
-import { initAuth, trySilentLogin, DEFAULT_CLIENT_ID } from "./repositories/auth.js";
+import { initAuth, trySilentLogin, DEFAULT_CLIENT_ID } from "./repositories/auth-facade.js";
 import { S, save, onSave } from "./state/store.js";
 import { undo, redo } from "./state/history.js";
 import { isNative, requestBackgroundPermissions, pushMobileConfig } from "./mobile/capacitor-bridge.js";
@@ -18,7 +18,7 @@ import {
 } from "./ui/modals.js";
 
 try {
-  initAuth(DEFAULT_CLIENT_ID);
+  await initAuth(DEFAULT_CLIENT_ID);
 } catch (e) {}
 
 // Reintento silencioso: si ya diste consentimiento antes, no hace falta

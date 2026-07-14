@@ -2,7 +2,7 @@
 // (readSheet/writeCell/appendRow/deleteRow) sin backend: fetch nativo
 // desde el browser usando el access_token de auth.js.
 
-import { getAccessToken } from "./auth.js";
+import { getAccessToken } from "./auth-facade.js";
 
 const BASE = "https://sheets.googleapis.com/v4/spreadsheets";
 
