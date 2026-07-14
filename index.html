@@ -287,7 +287,26 @@ async function apiFetchSheet(sr){
   const data=await readSheet(sr.sheetUrl);
   sr._ssId=data.id;sr._gid=data.gid;sr._title=data.title;
   const rows=data.rows.map(r=>r.map(c=>String(c??"")));
+  if(S.debug){
+    console.group(`[scantracker debug] ${sr.name} — filas crudas de la API`);
+    console.log("Encabezado esperado en fila 0/1/2:",rows.slice(0,3));
+    console.table(rows.slice(0,15));
+    console.groupEnd();
+  }
   const chs=csvToChapters(rows,true);
+  if(S.debug){
+    console.group(`[scantracker debug] ${sr.name} — capítulos parseados (who/done por etapa)`);
+    console.table(chs.map(c=>({num:c.num,
+      trad_who:c.trad.who,trad_done:c.trad.done,
+      limp_who:c.limp.who,limp_done:c.limp.done,
+      typ_who:c.typ.who,typ_done:c.typ.done,
+      corr_who:c.corr.who,corr_done:c.corr.done,
+      sube_who:c.sube.who,sube_done:c.sube.done})));
+    console.log("Tus aliases actuales:",S.aliases);
+    console.log("Ejemplo de comparación (primer capítulo, etapa trad):",
+      chs[0]?{who:chs[0].trad.who,esMio:esMio(chs[0].trad.who)}:"sin capítulos");
+    console.groupEnd();
+  }
   if(chs.length)sr.chapters=chs;
   sr.api=true;sr.lastSync=new Date().toLocaleTimeString();
 }
@@ -360,10 +379,11 @@ function modalAliases(){
 
 function modalGoogle(){
   openM(`<h3>Cuenta de Google</h3>
-  <div class="fld"><label>Client ID (OAuth, tipo "Aplicación web")</label>
-  <input id="gClientId" placeholder="xxxxx.apps.googleusercontent.com" value="${esc(S.clientId)}">
-  <div class="hint">De Google Cloud Console → Credenciales → Crear credenciales → ID de cliente de OAuth → Aplicación web. Agregá el origen donde sirvas esta página (ej. <code>http://localhost:5173</code> o tu URL de GitHub Pages) en "Orígenes de JavaScript autorizados". No necesitás client_secret: los Client ID web son públicos por diseño.</div></div>
   <div class="fld"><label>Estado</label><div id="gSt" style="font-size:14px;color:var(--mut)"></div></div>
+  <details style="margin-bottom:13px"><summary style="cursor:pointer;font-size:11.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.08em">Avanzado: usar mi propio Client ID</summary>
+    <div class="fld" style="margin-top:8px"><input id="gClientId" placeholder="xxxxx.apps.googleusercontent.com" value="${S.clientId!==DEFAULT_CLIENT_ID?esc(S.clientId):""}">
+    <div class="hint">Solo si corrés tu propia instancia con otro proyecto de Google Cloud. De lo contrario dejalo vacío — la app ya trae uno configurado. Client ID tipo "Aplicación web", requiere agregar tu origen en "Orígenes de JavaScript autorizados" en Google Cloud Console.</div></div>
+  </details>
   <div class="mrow">
     <button class="btn" id="gOutB" style="display:none">Cerrar sesión</button>
     <button class="btn" id="gClose">Cerrar</button>
@@ -375,8 +395,8 @@ function modalGoogle(){
     document.getElementById("gInB").style.display=isSignedIn()?"none":""};
   document.getElementById("gClose").onclick=closeM;
   document.getElementById("gInB").onclick=async()=>{
-    const cid=document.getElementById("gClientId").value.trim();
-    if(!cid)return toast("Falta el Client ID");
+    const custom=document.getElementById("gClientId").value.trim();
+    const cid=custom||DEFAULT_CLIENT_ID;
     if(cid!==S.clientId){S.clientId=cid;save();initAuth(cid)}
     const b=document.getElementById("gInB");b.textContent="Abriendo popup de Google...";b.disabled=true;
     try{
@@ -640,6 +660,11 @@ document.getElementById("bExport").onclick=()=>{
   a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
   a.download=sr.name.replace(/[^\w-]+/g,"_")+".csv";a.click();
 };
+
+// Diagnóstico temporal para el bug de "Mis tareas": abrí la consola del
+// navegador y corré scantrackerDebug(true), después dale a ⟳ Sincronizar.
+// Va a imprimir las filas crudas de la API y cómo quedaron parseadas.
+window.scantrackerDebug=on=>{S.debug=!!on;save();console.log("[scantracker] debug",S.debug?"activado":"desactivado","— sincronizá de nuevo para ver el log")};
 
 render();
 paintG();
