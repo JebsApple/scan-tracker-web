@@ -4,8 +4,13 @@
 // es público por diseño (autorizado por "Authorized JavaScript origins" en
 // Google Cloud Console, no por secreto).
 
+// drive.metadata.readonly: solo para listar "Compartidos conmigo" (nombre +
+// id de archivo), nunca lee contenido — eso sigue yendo por el scope de
+// spreadsheets. Es un scope "sensible" en Google Cloud Console: hay que
+// habilitar Google Drive API y agregar este scope en la pantalla de
+// consentimiento OAuth (y agregar test users si la app no está verificada).
 const SCOPES =
-  "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/userinfo.email";
+  "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/drive.metadata.readonly";
 
 let tokenClient = null;
 let currentToken = null; // { access_token: string, expires_at: number }
