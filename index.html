@@ -50,6 +50,7 @@ input:focus,select:focus{border-color:var(--red)}
 .serie .mt{font-size:11px;color:var(--mut);margin-top:5px;display:flex;gap:8px}
 .serie .mt .u{color:var(--red);font-weight:600}
 .serie .mt .m{color:var(--warn)}
+.serie .mt .e{color:var(--ok)}
 #sideFoot{padding:10px;border-top:1px solid var(--line);display:flex;gap:6px}
 #sideFoot .btn{flex:1;text-align:center;font-size:12.5px}
 
@@ -519,6 +520,19 @@ function misPend(sr){
   let n=0;sr.chapters.forEach(c=>ETAPAS.forEach(([k])=>{if(esMio(c[k].who)&&!c[k].done)n++}));return n;
 }
 function capCompleto(c){return ETAPAS.every(([k])=>c[k].done)}
+const ESP_LABEL={trad:"E.trad",limp:"E.clean",typ:"E.type",corr:"E.Corrección",sube:"E.subida"};
+// Capítulos donde ya terminé mi etapa pero el capítulo sigue esperando otra —
+// agrupados por cuál es la próxima etapa incompleta (el "cuello de botella").
+function esperando(sr){
+  const counts={};
+  sr.chapters.forEach(c=>{
+    if(capCompleto(c))return;
+    if(!ETAPAS.some(([k])=>esMio(c[k].who)&&c[k].done))return;
+    const next=ETAPAS.find(([k])=>!c[k].done);
+    if(next)counts[next[0]]=(counts[next[0]]||0)+1;
+  });
+  return counts;
+}
 
 function render(){
   // sidebar
@@ -526,10 +540,13 @@ function render(){
   sl.innerHTML=S.series.map(sr=>{
     const p=progreso(sr),mp=misPend(sr);
     const urg=sr.chapters.filter(c=>c.prio==="URGENTE"&&!capCompleto(c)).length;
+    const esp=esperando(sr);
+    const espBadges=Object.entries(esp).map(([k,n])=>
+      `<span class="e" title="${n} capítulo(s) donde terminaste tu parte, esperando ${ETAPAS.find(([kk])=>kk===k)[1].toLowerCase()}">${ESP_LABEL[k]} ${n}</span>`).join("");
     return `<div class="serie ${S.sel===sr.id?"sel":""}" data-sel="${sr.id}">
       <div class="nm"><span>${esc(sr.name)}</span><span>${p}%</span></div>
       <div class="pbar"><i style="width:${p}%"></i></div>
-      <div class="mt">${urg?`<span class="u">⚠ ${urg} urgentes</span>`:""}${mp?`<span class="m">${mp} mías</span>`:""}${sr.sheetUrl?`<span title="Vinculada a Google Sheets">☁ ${sr.lastSync||""}</span>`:""}</div>
+      <div class="mt">${urg?`<span class="u">⚠ ${urg} urgentes</span>`:""}${mp?`<span class="m">${mp} mías</span>`:""}${espBadges}${sr.sheetUrl?`<span title="Vinculada a Google Sheets">☁ ${sr.lastSync||""}</span>`:""}</div>
     </div>`}).join("")||`<div style="padding:14px;color:var(--mut);font-size:12.5px">Sin series. Agrega una con + Serie.</div>`;
 
   // filtros UI
