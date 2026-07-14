@@ -3,6 +3,8 @@
 #logo{font-family:var(--disp);font-weight:700;font-size:20px;letter-spacing:.08em;text-transform:uppercase}
 #logo b{color:var(--red)}
 #top .sp{flex:1}
+#filtersPanel,#morePanel{display:contents}
+#drawerBackdrop{display:none}
 
 /* LAYOUT */
 #main{flex:1;display:flex;overflow:hidden}
@@ -85,12 +87,37 @@ td.del button:hover{color:var(--red)}
 #toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--red);padding:9px 18px;border-radius:8px;font-size:13px;opacity:0;pointer-events:none;transition:.25s;z-index:60}
 #toast.show{opacity:1}
 @media(max-width:760px){#side{width:200px;min-width:200px}.stage input[type=text]{width:64px}}
-@media(max-width:600px){
+
+/* MOBILE (app Android empaquetada, o navegador angosto): topbar reducida a
+   lo de uso frecuente (sincronizar, deshacer/rehacer, mis tareas), el resto
+   se agrupa detrás de togglers. La sidebar de series pasa a ser un drawer
+   superpuesto en vez de competir por ancho con la tabla, que es lo que
+   importa mostrar completo en una pantalla angosta. */
+#bDrawer,#bFiltersToggle,#bMoreToggle{display:none}
+@media(max-width:700px){
   #top{padding:8px 10px;gap:8px}
   #fBusca{width:110px}
-  #main{flex-direction:column}
-  #side{width:100%;min-width:0;max-height:140px;border-right:none;border-bottom:1px solid var(--line)}
   #serieHead h2{font-size:19px}
   .stage{min-width:100px}
   .stage input[type=text]{width:56px}
+
+  #bDrawer,#bFiltersToggle,#bMoreToggle{display:inline-flex}
+  #filtersPanel,#morePanel{display:none}
+  #filtersPanel.open,#morePanel.open{
+    display:flex;flex-direction:column;gap:8px;align-items:stretch;
+    position:absolute;top:52px;right:10px;z-index:70;min-width:200px;
+    background:var(--panel);border:1px solid var(--line);border-radius:8px;
+    padding:12px;box-shadow:0 8px 24px rgba(0,0,0,.4);
+  }
+  #morePanel.open .btn{justify-content:flex-start}
+
+  #side{
+    position:fixed;top:0;left:0;bottom:0;width:80%;max-width:300px;
+    max-height:none;z-index:80;transform:translateX(-100%);
+    transition:transform .2s ease-out;border-right:1px solid var(--line);
+  }
+  #side.open{transform:translateX(0)}
+  #drawerBackdrop.open{
+    display:block;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:75;
+  }
 }

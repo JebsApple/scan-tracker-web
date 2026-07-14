@@ -14,7 +14,7 @@
     "url": "git+https://github.com/JebsApple/scan-tracker-web.git"
   },
   "keywords": [],
-  "type": "commonjs",
+  "type": "module",
   "bugs": {
     "url": "https://github.com/JebsApple/scan-tracker-web/issues"
   },

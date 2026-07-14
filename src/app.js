@@ -46,6 +46,48 @@ document.getElementById("bSync").onclick = () => syncAll(true).then(render);
 document.getElementById("bUndo").onclick = () => undo(render);
 document.getElementById("bRedo").onclick = () => redo(render);
 
+// Togglers de mobile (ocultos por CSS en desktop, ver styles/components.css
+// breakpoint 700px): drawer de series, panel de filtros, menú "más".
+function toggle(el, force) {
+  const open = force ?? !el.classList.contains("open");
+  el.classList.toggle("open", open);
+  return open;
+}
+const drawer = document.getElementById("side");
+const backdrop = document.getElementById("drawerBackdrop");
+const filtersPanel = document.getElementById("filtersPanel");
+const morePanel = document.getElementById("morePanel");
+function closeAllPanels() {
+  drawer.classList.remove("open");
+  backdrop.classList.remove("open");
+  filtersPanel.classList.remove("open");
+  morePanel.classList.remove("open");
+}
+document.getElementById("bDrawer").onclick = () => {
+  const open = toggle(drawer);
+  toggle(backdrop, open);
+};
+backdrop.onclick = closeAllPanels;
+document.getElementById("bFiltersToggle").onclick = (e) => {
+  e.stopPropagation();
+  const open = toggle(filtersPanel);
+  morePanel.classList.remove("open");
+  if (open) toggle(backdrop, false); // el panel de filtros cierra solo (afuera), no necesita backdrop
+};
+document.getElementById("bMoreToggle").onclick = (e) => {
+  e.stopPropagation();
+  toggle(morePanel);
+  filtersPanel.classList.remove("open");
+};
+document.addEventListener("click", (e) => {
+  if (!filtersPanel.contains(e.target) && e.target.id !== "bFiltersToggle") filtersPanel.classList.remove("open");
+  if (!morePanel.contains(e.target) && e.target.id !== "bMoreToggle") morePanel.classList.remove("open");
+});
+document.getElementById("serieList").addEventListener("click", (e) => {
+  if (e.target.closest("[data-sel]")) closeAllPanels();
+});
+document.getElementById("morePanel").addEventListener("click", () => morePanel.classList.remove("open"));
+
 document.getElementById("bExport").onclick = () => {
   const sr = S.series.find((x) => x.id === S.sel);
   if (!sr) return toast("Selecciona una serie");
