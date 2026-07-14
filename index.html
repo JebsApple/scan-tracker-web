@@ -158,6 +158,7 @@ td.del button:hover{color:var(--red)}
   <button class="btn" id="bSync" title="Recargar hojas vinculadas de Google">⟳ Sincronizar</button>
   <button class="btn" id="bDash">▦ Dashboard</button>
   <button class="btn" id="bHist">☰ Mi historial</button>
+  <button class="btn" id="bPend">▣ Mis pendientes</button>
   <button class="btn" id="bCfg">⚙ Mis nombres</button>
 </div>
 
@@ -531,6 +532,33 @@ function modalHistorial(){
   document.getElementById("histClose").onclick=closeM;
 }
 
+// Cruza TODAS las series (no solo la abierta) y junta los capítulos donde
+// tengo alguna etapa asignada e incompleta — antes había que abrir cada
+// pestaña de serie para verlo, uno por uno.
+function modalMisPendientes(){
+  const items=[];
+  S.series.forEach(sr=>{
+    sr.chapters.forEach(c=>{
+      if(esOculto(sr,c))return;
+      etapasDe(sr).forEach(([k,label])=>{
+        if(esMio(c[k].who)&&!c[k].done)items.push({serieId:sr.id,serieName:sr.name,cap:c.num,etapa:label,prio:c.prio});
+      });
+    });
+  });
+  const rank=p=>{const i=PRIOS.indexOf(p);return i<0?PRIOS.length:i};
+  items.sort((a,b)=>rank(a.prio)-rank(b.prio));
+  const rows=items.map(it=>`<tr><td>${esc(it.serieName)}</td><td class="cap">${esc(it.cap)}</td><td>${esc(it.etapa)}</td>
+    <td><span class="prio ${prioClass(it.prio)}">${esc(it.prio||"—")}</span></td>
+    <td><button class="btn" data-jumpserie="${it.serieId}">Ir</button></td></tr>`).join("");
+  openM(`<h3>Mis pendientes</h3>
+  <div class="fld"><div class="hint">Capítulos de TODAS tus series donde tenés una etapa asignada e incompleta.</div></div>
+  <table class="dashTbl"><thead><tr><th>Serie</th><th>Cap</th><th>Etapa</th><th>Prioridad</th><th></th></tr></thead>
+  <tbody>${rows||`<tr><td colspan="5" style="color:var(--mut)">Sin pendientes — al día.</td></tr>`}</tbody></table>
+  <div class="mrow"><button class="btn" id="pendClose">Cerrar</button></div>`);
+  document.getElementById("pendClose").onclick=closeM;
+  modal.querySelectorAll("[data-jumpserie]").forEach(b=>b.onclick=()=>{selSerie(b.dataset.jumpserie);closeM()});
+}
+
 function modalSerie(){
   openM(`<h3>Nueva serie</h3>
   <div class="fld"><label>Nombre</label><input id="snName" placeholder="Teto x Egen"></div>
@@ -774,6 +802,7 @@ document.getElementById("fBusca").oninput=e=>{S.filters.busca=e.target.value;ren
 document.getElementById("bCfg").onclick=modalAliases;
 document.getElementById("bDash").onclick=modalDashboard;
 document.getElementById("bHist").onclick=modalHistorial;
+document.getElementById("bPend").onclick=modalMisPendientes;
 document.getElementById("bGoogle").onclick=modalGoogle;
 document.getElementById("bAddSerie").onclick=modalSerie;
 document.getElementById("bSync").onclick=()=>syncAll(true);
