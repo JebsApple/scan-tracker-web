@@ -182,7 +182,29 @@ import { initAuth, requestToken, getAccessToken, isSignedIn, signOut as gSignOut
 import { readSheet, writeCell as apiWriteCell, appendRow as apiAppendRow, deleteRow as apiDeleteRow } from "./src/sheets-api.js";
 
 /* ============ ESTADO ============ */
+// ETAPAS es el contrato POR DEFECTO (series manuales/CSV sin encabezado
+// detectable). Series sincronizadas con Sheets pueden tener su propio
+// sr.etapaDefs (mismo formato [key,label]) autodetectado del encabezado real
+// de esa hoja — no todos los equipos usan las mismas 5 etapas. Las claves
+// internas (trad/limp/typ/corr/sube) son siempre POSICIONALES (1ra etapa del
+// sheet, 2da, etc), no atadas al nombre real de la etapa — por eso COLW más
+// abajo sigue funcionando sin cambios aunque el nombre real sea otro.
 const ETAPAS=[["trad","Traducción"],["limp","Limpieza"],["typ","Typeo"],["corr","Corrección"],["sube","Sube"]];
+const ETAPA_KEYS=ETAPAS.map(([k])=>k);
+const etapasDe=sr=>(sr&&sr.etapaDefs)||ETAPAS;
+// Detecta pares (who,done) desde la fila de encabezado real de un Sheet.
+// Columnas 0/1 son Capítulo/Prioridad, desde la 2 en adelante se asume
+// alternancia who,done por cada etapa — funciona con 4, 5, o cualquier
+// cantidad de etapas mientras respeten ese patrón.
+function detectEtapaDefs(headerRow){
+  const defs=[];
+  for(let i=2,k=0;i+1<headerRow.length+1&&k<ETAPA_KEYS.length;i+=2,k++){
+    const label=String(headerRow[i]||"").trim();
+    if(!label)break;
+    defs.push([ETAPA_KEYS[k],label]);
+  }
+  return defs.length?defs:ETAPAS;
+}
 const DEFAULT_CLIENT_ID="50665049250-07f71ktrd7a8gd8fhg63l3jhv4hdnu6k.apps.googleusercontent.com";
 let S=load()||{aliases:[],series:[],sel:null,clientId:DEFAULT_CLIENT_ID,filters:{mine:false,prio:"",estado:"",busca:"",etapa:"",orden:""},whoSnapshot:{},historial:[],startedAt:{}};
 S.filters.etapa=S.filters.etapa||"";
@@ -263,14 +285,14 @@ function notifyDesignation(serieName,capNum,etapaLabel){
 function checkDesignations(sr){
   const prev=S.whoSnapshot[sr.id];
   const cur={};
-  sr.chapters.forEach(c=>ETAPAS.forEach(([k])=>{cur[`${c.num}|${k}`]=norm(c[k].who)}));
+  sr.chapters.forEach(c=>etapasDe(sr).forEach(([k])=>{cur[`${c.num}|${k}`]=norm(c[k].who)}));
   if(prev){
     Object.keys(cur).forEach(key=>{
       const wasMine=esMio(prev[key]||"");
       const isMine=esMio(cur[key]);
       if(!wasMine&&isMine){
         const[num,etk]=key.split("|");
-        const etLabel=(ETAPAS.find(([k])=>k===etk)||[])[1]||etk;
+        const etLabel=(etapasDe(sr).find(([k])=>k===etk)||[])[1]||etk;
         notifyDesignation(sr.name,num,etLabel);
       }
     });
@@ -299,25 +321,28 @@ function parseCSV(txt){
   if(cur||row.length){row.push(cur);rows.push(row)}
   return rows;
 }
+// Devuelve {chapters, etapaDefs} — etapaDefs autodetectado del encabezado
+// real de la hoja (ver detectEtapaDefs), o el contrato por defecto (ETAPAS)
+// si no se encontró encabezado (CSV pegado sin fila de título, por ejemplo).
 function csvToChapters(rows,track){
-  // Detecta encabezado (fila que contiene "Capítulos" o similar)
-  let start=0;
+  let start=0,headerRow=null;
   for(let i=0;i<Math.min(rows.length,3);i++){
-    if(rows[i].some(c=>/cap[ií]tulo/i.test(c))){start=i+1;break}
+    if(rows[i].some(c=>/^cap/i.test(String(c).trim()))){headerRow=rows[i];start=i+1;break}
   }
+  const etapaDefs=headerRow?detectEtapaDefs(headerRow):ETAPAS;
   const chs=[];
   for(let i=start;i<rows.length;i++){
     const r=rows[i];if(!r[0]||!String(r[0]).trim())continue;
     const T=v=>String(v||"").trim().toUpperCase()==="TRUE";
-    chs.push({id:uid(),num:String(r[0]).trim(),prio:String(r[1]||"").trim().toUpperCase(),
-      srcRow:track?i+1:null,
-      trad:{who:(r[2]||"").trim(),done:T(r[3])},
-      limp:{who:(r[4]||"").trim(),done:T(r[5])},
-      typ:{who:(r[6]||"").trim(),done:T(r[7])},
-      corr:{who:(r[8]||"").trim(),done:T(r[9])},
-      sube:{who:(r[10]||"").trim(),done:T(r[11])}});
+    const ch={id:uid(),num:String(r[0]).trim(),prio:String(r[1]||"").trim().toUpperCase(),
+      srcRow:track?i+1:null};
+    etapaDefs.forEach(([key],idx)=>{
+      const whoCol=2+idx*2,doneCol=3+idx*2;
+      ch[key]={who:(r[whoCol]||"").trim(),done:T(r[doneCol])};
+    });
+    chs.push(ch);
   }
-  return chs;
+  return {chapters:chs,etapaDefs};
 }
 function gvizUrl(url){
   const m=url.match(/\/d\/([\w-]+)/);if(!m)return null;
@@ -341,21 +366,24 @@ async function apiFetchSheet(sr){
     console.table(rows.slice(0,15));
     console.groupEnd();
   }
-  const chs=csvToChapters(rows,true);
+  const {chapters:chs,etapaDefs}=csvToChapters(rows,true);
   if(S.debug){
+    console.group(`[scantracker debug] ${sr.name} — etapas detectadas`);
+    console.log(etapaDefs);
+    console.groupEnd();
     console.group(`[scantracker debug] ${sr.name} — capítulos parseados (who/done por etapa)`);
-    console.table(chs.map(c=>({num:c.num,
-      trad_who:c.trad.who,trad_done:c.trad.done,
-      limp_who:c.limp.who,limp_done:c.limp.done,
-      typ_who:c.typ.who,typ_done:c.typ.done,
-      corr_who:c.corr.who,corr_done:c.corr.done,
-      sube_who:c.sube.who,sube_done:c.sube.done})));
+    console.table(chs.map(c=>{
+      const row={num:c.num};
+      etapaDefs.forEach(([k,label])=>{row[`${label}_who`]=c[k].who;row[`${label}_done`]=c[k].done});
+      return row;
+    }));
     console.log("Tus aliases actuales:",S.aliases);
-    console.log("Ejemplo de comparación (primer capítulo, etapa trad):",
-      chs[0]?{who:chs[0].trad.who,esMio:esMio(chs[0].trad.who)}:"sin capítulos");
+    const [firstKey,firstLabel]=etapaDefs[0]||[];
+    console.log(`Ejemplo de comparación (primer capítulo, etapa ${firstLabel}):`,
+      chs[0]&&firstKey?{who:chs[0][firstKey].who,esMio:esMio(chs[0][firstKey].who)}:"sin capítulos");
     console.groupEnd();
   }
-  if(chs.length)sr.chapters=chs;
+  if(chs.length){sr.chapters=chs;sr.etapaDefs=etapaDefs;}
   sr.api=true;sr.lastSync=new Date().toLocaleTimeString();
 }
 const COLW={trad:["C","D"],limp:["E","F"],typ:["G","H"],corr:["I","J"],sube:["K","L"]};
@@ -367,7 +395,7 @@ async function pushCell(sr,ch,col,val){
 async function pushNewRow(sr,ch){
   if(!sr?.api)return;
   try{const row=await apiAppendRow(sr.sheetUrl,sr._title,
-    [ch.num,ch.prio,"",false,"",false,"",false,"",false,"",false]);
+    [ch.num,ch.prio,...etapasDe(sr).flatMap(()=>["",false])]);
     if(row>0){ch.srcRow=row;save()}
   }catch(e){toast("No se pudo agregar fila: "+friendlyError(e))}
 }
@@ -384,8 +412,8 @@ async function fetchSheet(sr){
   sr.api=false;
   const u=gvizUrl(sr.sheetUrl);if(!u)throw new Error("URL inválida");
   const res=await fetch(u);if(!res.ok){const err=new Error("HTTP "+res.status);err.status=res.status;throw err}
-  const chs=csvToChapters(parseCSV(await res.text()));
-  if(chs.length)sr.chapters=chs;
+  const {chapters:chs,etapaDefs}=csvToChapters(parseCSV(await res.text()));
+  if(chs.length){sr.chapters=chs;sr.etapaDefs=etapaDefs;}
   sr.lastSync=new Date().toLocaleTimeString();
 }
 async function syncAll(manual){
@@ -463,8 +491,8 @@ function modalDashboard(){
   let totalCaps=0,totalDone=0,totalUrg=0;
   const rows=S.series.map(sr=>{
     const caps=sr.chapters.length;
-    const done=sr.chapters.filter(capCompleto).length;
-    const urg=sr.chapters.filter(c=>c.prio==="URGENTE"&&!capCompleto(c)).length;
+    const done=sr.chapters.filter(c=>capCompleto(sr,c)).length;
+    const urg=sr.chapters.filter(c=>c.prio==="URGENTE"&&!capCompleto(sr,c)).length;
     totalCaps+=caps;totalDone+=done;totalUrg+=urg;
     return `<tr><td>${esc(sr.name)}</td><td>${done}/${caps}</td><td>${caps?Math.round(done/caps*100):0}%</td>
       <td>${urg?`<span style="color:#ff6b69;font-weight:700">${urg}</span>`:"—"}</td></tr>`;
@@ -538,22 +566,25 @@ function modalSerie(){
     const sr={id:uid(),name,sheetUrl:null,chapters:[],ocultos:{}};
     if(v==="manual"){
       const n=+document.getElementById("snN").value||0;
-      for(let i=1;i<=n;i++)sr.chapters.push(nuevoCap(String(i)));
+      for(let i=1;i<=n;i++)sr.chapters.push(nuevoCap(String(i),sr));
     }else if(v==="gsheet"){
       sr.sheetUrl=document.getElementById("snUrl").value.trim();
       try{await fetchSheet(sr);checkDesignations(sr)}catch(e){toast("No se pudo leer la hoja: "+friendlyError(e))}
     }else if(v==="paste"){
-      sr.chapters=csvToChapters(parseCSV(document.getElementById("snPaste").value));
+      const r=csvToChapters(parseCSV(document.getElementById("snPaste").value));
+      sr.chapters=r.chapters;sr.etapaDefs=r.etapaDefs;
     }else if(v==="file"&&pendingFileCSV){
-      sr.chapters=csvToChapters(parseCSV(pendingFileCSV));pendingFileCSV=null;
+      const r=csvToChapters(parseCSV(pendingFileCSV));
+      sr.chapters=r.chapters;sr.etapaDefs=r.etapaDefs;pendingFileCSV=null;
     }
     S.series.push(sr);S.sel=sr.id;save();render();closeM();
   };
 }
 let pendingFileCSV=null;
-function nuevoCap(num){
-  const st=()=>({who:"",done:false});
-  return {id:uid(),num,prio:"URGENTE",trad:st(),limp:st(),typ:st(),corr:st(),sube:st()};
+function nuevoCap(num,sr){
+  const ch={id:uid(),num,prio:"URGENTE"};
+  etapasDe(sr).forEach(([k])=>{ch[k]={who:"",done:false}});
+  return ch;
 }
 
 /* ============ RENDER ============ */
@@ -569,34 +600,35 @@ function toggleOculto(s,num){
 }
 function progreso(sr){
   let tot=0,done=0;
-  sr.chapters.forEach(c=>{if(esOculto(sr,c))return;ETAPAS.forEach(([k])=>{tot++;if(c[k].done)done++})});
+  sr.chapters.forEach(c=>{if(esOculto(sr,c))return;etapasDe(sr).forEach(([k])=>{tot++;if(c[k].done)done++})});
   return tot?Math.round(done/tot*100):0;
 }
 function misPend(sr){
-  let n=0;sr.chapters.forEach(c=>{if(esOculto(sr,c))return;ETAPAS.forEach(([k])=>{if(esMio(c[k].who)&&!c[k].done)n++})});return n;
+  let n=0;sr.chapters.forEach(c=>{if(esOculto(sr,c))return;etapasDe(sr).forEach(([k])=>{if(esMio(c[k].who)&&!c[k].done)n++})});return n;
 }
-function capCompleto(c){return ETAPAS.every(([k])=>c[k].done)}
-const ESP_LABEL={trad:"E.trad",limp:"E.clean",typ:"E.type",corr:"E.Corrección",sube:"E.subida"};
+function capCompleto(sr,c){return etapasDe(sr).every(([k])=>c[k].done)}
 // Urgentes que todavía me competen: si ya terminé TODAS mis etapas
 // asignadas en un capítulo, dejar de contarlo como urgente para mí aunque
 // el capítulo siga incompleto por otras personas (eso ya lo cubre esperando()).
 function urgentesParaMi(sr){
   return sr.chapters.filter(c=>{
-    if(esOculto(sr,c)||c.prio!=="URGENTE"||capCompleto(c))return false;
-    const misEtapas=ETAPAS.filter(([k])=>esMio(c[k].who));
+    if(esOculto(sr,c)||c.prio!=="URGENTE"||capCompleto(sr,c))return false;
+    const misEtapas=etapasDe(sr).filter(([k])=>esMio(c[k].who));
     if(misEtapas.length&&misEtapas.every(([k])=>c[k].done))return false;
     return true;
   }).length;
 }
 // Capítulos donde ya terminé mi etapa pero el capítulo sigue esperando otra —
 // agrupados por cuál es la próxima etapa incompleta (el "cuello de botella").
+// Las claves del resultado son [key,label] real de esa serie, no fijas,
+// porque distintas hojas pueden nombrar sus etapas distinto.
 function esperando(sr){
-  const counts={};
+  const counts=new Map();
   sr.chapters.forEach(c=>{
-    if(esOculto(sr,c)||capCompleto(c))return;
-    if(!ETAPAS.some(([k])=>esMio(c[k].who)&&c[k].done))return;
-    const next=ETAPAS.find(([k])=>!c[k].done);
-    if(next)counts[next[0]]=(counts[next[0]]||0)+1;
+    if(esOculto(sr,c)||capCompleto(sr,c))return;
+    if(!etapasDe(sr).some(([k])=>esMio(c[k].who)&&c[k].done))return;
+    const next=etapasDe(sr).find(([k])=>!c[k].done);
+    if(next)counts.set(next[1],(counts.get(next[1])||0)+1);
   });
   return counts;
 }
@@ -608,8 +640,8 @@ function render(){
     const p=progreso(sr),mp=misPend(sr);
     const urg=urgentesParaMi(sr);
     const esp=esperando(sr);
-    const espBadges=Object.entries(esp).map(([k,n])=>
-      `<span class="e" title="${n} capítulo(s) donde terminaste tu parte, esperando ${ETAPAS.find(([kk])=>kk===k)[1].toLowerCase()}">${ESP_LABEL[k]} ${n}</span>`).join("");
+    const espBadges=[...esp.entries()].map(([label,n])=>
+      `<span class="e" title="${n} capítulo(s) donde terminaste tu parte, esperando ${esc(label.toLowerCase())}">E.${esc(label)} ${n}</span>`).join("");
     return `<div class="serie ${S.sel===sr.id?"sel":""}" data-sel="${sr.id}">
       <div class="nm"><span>${esc(sr.name)}</span><span>${p}%</span></div>
       <div class="pbar"><i style="width:${p}%"></i></div>
@@ -617,22 +649,27 @@ function render(){
     </div>`}).join("")||`<div style="padding:14px;color:var(--mut);font-size:12.5px">Sin series. Agrega una con + Serie.</div>`;
 
   // filtros UI
+  const sr=S.series.find(x=>x.id===S.sel);
   document.getElementById("fMine").classList.toggle("on",S.filters.mine);
   document.getElementById("fPrio").value=S.filters.prio;
   document.getElementById("fEstado").value=S.filters.estado;
-  document.getElementById("fEtapa").value=S.filters.etapa;
+  // Las opciones de etapa dependen de la serie seleccionada — distintas hojas
+  // pueden tener distinta cantidad/nombre de etapas.
+  const fEtapaEl=document.getElementById("fEtapa");
+  fEtapaEl.innerHTML=`<option value="">Toda etapa</option>`+
+    etapasDe(sr).map(([k,label])=>`<option value="${k}">${esc(label)}</option>`).join("");
+  fEtapaEl.value=S.filters.etapa;
   document.getElementById("fOrden").value=S.filters.orden;
 
   // contenido
-  const sr=S.series.find(x=>x.id===S.sel);
   const ct=document.getElementById("content");
   if(!sr){ct.innerHTML=`<div id="empty"><div class="big">Scan<span style="color:var(--red)">Tracker</span></div><div>Selecciona o crea una serie para empezar.</div></div>`;return}
 
-  const etapas=S.filters.etapa?ETAPAS.filter(([k])=>k===S.filters.etapa):ETAPAS;
+  const etapas=S.filters.etapa?etapasDe(sr).filter(([k])=>k===S.filters.etapa):etapasDe(sr);
   let chs=sr.chapters.filter(c=>{
     if(S.filters.prio&&c.prio!==S.filters.prio)return false;
-    if(S.filters.estado==="pend"&&capCompleto(c))return false;
-    if(S.filters.estado==="done"&&!capCompleto(c))return false;
+    if(S.filters.estado==="pend"&&capCompleto(sr,c))return false;
+    if(S.filters.estado==="done"&&!capCompleto(sr,c))return false;
     if(S.filters.mine&&!etapas.some(([k])=>esMio(c[k].who)&&!c[k].done))return false;
     const b=norm(S.filters.busca);
     if(b&&!etapas.some(([k])=>norm(c[k].who).includes(b)))return false;
@@ -645,7 +682,7 @@ function render(){
 
   const head=`<div id="serieHead">
     <h2>${esc(sr.name)}</h2>
-    <span class="stats">${sr.chapters.length} caps · ${progreso(sr)}% · ${sr.chapters.filter(capCompleto).length} completos</span>
+    <span class="stats">${sr.chapters.length} caps · ${progreso(sr)}% · ${sr.chapters.filter(c=>capCompleto(sr,c)).length} completos</span>
     <div class="sp"></div>
     <button class="btn" data-addcap="${sr.id}">+ Capítulo</button>
     <button class="btn" data-delserie="${sr.id}" style="color:var(--mut)">Eliminar serie</button>
@@ -662,7 +699,7 @@ function render(){
     const oculto=esOculto(sr,c);
     const rowClasses=[];
     if(mine&&!S.filters.mine)rowClasses.push("mine");
-    if(c.prio==="URGENTE"&&!capCompleto(c))rowClasses.push("urgent");
+    if(c.prio==="URGENTE"&&!capCompleto(sr,c))rowClasses.push("urgent");
     if(oculto)rowClasses.push("hidden-cap");
     return `<tr class="${rowClasses.join(" ")}">
       <td class="cap">${esc(c.num)}</td>
@@ -687,7 +724,7 @@ function tg(s,c,k){const sr=S.series.find(x=>x.id===s),ch=sr.chapters.find(x=>x.
   if(ch[k].done&&esMio(ch[k].who)){
     const t0=S.startedAt[startKey];
     S.historial.unshift({fecha:new Date().toISOString(),serie:sr.name,cap:ch.num,
-      etapa:(ETAPAS.find(([kk])=>kk===k)||[])[1]||k,
+      etapa:(etapasDe(sr).find(([kk])=>kk===k)||[])[1]||k,
       durMs:t0?Date.now()-t0:null});
     delete S.startedAt[startKey];
   }else if(!ch[k].done){delete S.startedAt[startKey]}
@@ -703,7 +740,7 @@ function cyclePrio(s,c){const sr=S.series.find(x=>x.id===s),ch=sr.chapters.find(
 function addCap(s){const sr=S.series.find(x=>x.id===s);
   const last=sr.chapters.length?sr.chapters[sr.chapters.length-1].num:"0";
   const n=isNaN(+last)?String(sr.chapters.length+1):String(+last+1);
-  const ch=nuevoCap(n);sr.chapters.push(ch);save();render();pushNewRow(sr,ch)}
+  const ch=nuevoCap(n,sr);sr.chapters.push(ch);save();render();pushNewRow(sr,ch)}
 function delCap(s,c){const sr=S.series.find(x=>x.id===s);
   if(!confirm("¿Eliminar capítulo?"+(sr.api?" (también se borrará la fila en la hoja de Google)":"")))return;
   const ch=sr.chapters.find(x=>x.id===c);
@@ -731,8 +768,6 @@ document.getElementById("content").addEventListener("change",e=>{
 document.getElementById("fMine").onclick=()=>{S.filters.mine=!S.filters.mine;save();render()};
 document.getElementById("fPrio").onchange=e=>{S.filters.prio=e.target.value;save();render()};
 document.getElementById("fEstado").onchange=e=>{S.filters.estado=e.target.value;save();render()};
-document.getElementById("fEtapa").innerHTML=`<option value="">Toda etapa</option>`+
-  ETAPAS.map(([k,label])=>`<option value="${k}">${label}</option>`).join("");
 document.getElementById("fEtapa").onchange=e=>{S.filters.etapa=e.target.value;save();render()};
 document.getElementById("fOrden").onchange=e=>{S.filters.orden=e.target.value;save();render()};
 document.getElementById("fBusca").oninput=e=>{S.filters.busca=e.target.value;render()};
@@ -747,8 +782,9 @@ document.getElementById("bRedo").onclick=redo;
 paintUndoRedo();
 document.getElementById("bExport").onclick=()=>{
   const sr=S.series.find(x=>x.id===S.sel);if(!sr)return toast("Selecciona una serie");
-  let csv="Capítulos,Prioridad,TRADUCCIÓN,LISTO,LIMPIEZA,LISTO,TYPEO,LISTO,CORRECCIÓN,LISTO,SUBE,LISTO\n";
-  sr.chapters.forEach(c=>{csv+=[c.num,c.prio,...ETAPAS.flatMap(([k])=>[c[k].who,c[k].done?"TRUE":"FALSE"])].map(v=>/[",\n]/.test(v)?`"${String(v).replace(/"/g,'""')}"`:v).join(",")+"\n"});
+  const etapaDefs=etapasDe(sr);
+  let csv="Capítulos,Prioridad,"+etapaDefs.flatMap(([,label])=>[label,"LISTO"]).join(",")+"\n";
+  sr.chapters.forEach(c=>{csv+=[c.num,c.prio,...etapaDefs.flatMap(([k])=>[c[k].who,c[k].done?"TRUE":"FALSE"])].map(v=>/[",\n]/.test(v)?`"${String(v).replace(/"/g,'""')}"`:v).join(",")+"\n"});
   const a=document.createElement("a");
   a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
   a.download=sr.name.replace(/[^\w-]+/g,"_")+".csv";a.click();
