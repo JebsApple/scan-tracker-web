@@ -67,12 +67,14 @@ td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
 tr:hover td{background:rgba(255,255,255,.02)}
 tr.mine td{background:var(--red-soft)}
 tr.urgent td:first-child{box-shadow:inset 3px 0 0 var(--red)}
+tr.hidden-cap{opacity:.4}
+td.del{white-space:nowrap}
+td.del button{margin-left:2px}
 td.cap{font-family:var(--mono);font-weight:700;font-size:13px}
 .prio{font-size:10.5px;font-weight:700;letter-spacing:.06em;padding:3px 8px;border-radius:4px;text-transform:uppercase;cursor:pointer;white-space:nowrap}
 .prio.URGENTE{background:rgba(224,50,47,.18);color:#ff6b69}
 .prio.MODERADO{background:rgba(245,183,61,.14);color:var(--warn)}
 .prio.ATU{background:rgba(139,135,148,.15);color:var(--mut)}
-.prio.ECAP{background:rgba(139,135,148,.08);color:var(--mut);font-style:italic}
 .stage{display:flex;align-items:center;gap:7px;min-width:120px}
 .stage input[type=text]{width:92px;padding:4px 7px;font-size:12px;background:transparent;border-color:transparent}
 .stage input[type=text]:hover{border-color:var(--line)}
@@ -134,7 +136,6 @@ td.del button:hover{color:var(--red)}
     <option value="URGENTE">Urgente</option>
     <option value="MODERADO">Moderado</option>
     <option value="A TU TIEMPO">A tu tiempo</option>
-    <option value="E.CAP">Esperando capítulo</option>
   </select>
   <select id="fEstado" style="border-radius:99px">
     <option value="">Todo estado</option>
@@ -193,8 +194,8 @@ function toast(m){const t=document.getElementById("toast");t.textContent=m;t.cla
 const uid=()=>Math.random().toString(36).slice(2,9);
 const norm=s=>(s||"").trim().toLowerCase();
 const esMio=n=>n&&S.aliases.some(a=>norm(a)===norm(n));
-const prioClass=p=>p==="URGENTE"?"URGENTE":p==="MODERADO"?"MODERADO":p==="E.CAP"?"ECAP":"ATU";
-const PRIOS=["URGENTE","MODERADO","A TU TIEMPO","E.CAP"];
+const prioClass=p=>p==="URGENTE"?"URGENTE":p==="MODERADO"?"MODERADO":"ATU";
+const PRIOS=["URGENTE","MODERADO","A TU TIEMPO"];
 
 // Traduce errores de red/API a mensajes accionables. gvizUrl (fetch nativo)
 // no trae `.status` estructurado, se extrae del prefijo "HTTP <code>".
@@ -490,7 +491,7 @@ function modalSerie(){
     if(!name)return toast("Falta el nombre");
     const v=src.value;
     if(v==="file"&&!pendingFileCSV)return toast("Elegí un archivo CSV primero");
-    const sr={id:uid(),name,sheetUrl:null,chapters:[]};
+    const sr={id:uid(),name,sheetUrl:null,chapters:[],ocultos:{}};
     if(v==="manual"){
       const n=+document.getElementById("snN").value||0;
       for(let i=1;i<=n;i++)sr.chapters.push(nuevoCap(String(i)));
@@ -513,13 +514,22 @@ function nuevoCap(num){
 
 /* ============ RENDER ============ */
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+// Capítulos "ocultos" (ej. sin raw todavía, plantilla a futuro): se marcan
+// por número de capítulo en sr.ocultos, NO en el capítulo mismo — el objeto
+// capítulo se recrea con un id nuevo en cada sync, el número de capítulo es
+// lo único estable entre syncs.
+const esOculto=(sr,c)=>!!(sr.ocultos&&sr.ocultos[c.num]);
+function toggleOculto(s,num){
+  const sr=S.series.find(x=>x.id===s);sr.ocultos=sr.ocultos||{};
+  sr.ocultos[num]=!sr.ocultos[num];save();render();
+}
 function progreso(sr){
   let tot=0,done=0;
-  sr.chapters.forEach(c=>ETAPAS.forEach(([k])=>{tot++;if(c[k].done)done++}));
+  sr.chapters.forEach(c=>{if(esOculto(sr,c))return;ETAPAS.forEach(([k])=>{tot++;if(c[k].done)done++})});
   return tot?Math.round(done/tot*100):0;
 }
 function misPend(sr){
-  let n=0;sr.chapters.forEach(c=>ETAPAS.forEach(([k])=>{if(esMio(c[k].who)&&!c[k].done)n++}));return n;
+  let n=0;sr.chapters.forEach(c=>{if(esOculto(sr,c))return;ETAPAS.forEach(([k])=>{if(esMio(c[k].who)&&!c[k].done)n++})});return n;
 }
 function capCompleto(c){return ETAPAS.every(([k])=>c[k].done)}
 const ESP_LABEL={trad:"E.trad",limp:"E.clean",typ:"E.type",corr:"E.Corrección",sube:"E.subida"};
@@ -528,7 +538,7 @@ const ESP_LABEL={trad:"E.trad",limp:"E.clean",typ:"E.type",corr:"E.Corrección",
 // el capítulo siga incompleto por otras personas (eso ya lo cubre esperando()).
 function urgentesParaMi(sr){
   return sr.chapters.filter(c=>{
-    if(c.prio!=="URGENTE"||capCompleto(c))return false;
+    if(esOculto(sr,c)||c.prio!=="URGENTE"||capCompleto(c))return false;
     const misEtapas=ETAPAS.filter(([k])=>esMio(c[k].who));
     if(misEtapas.length&&misEtapas.every(([k])=>c[k].done))return false;
     return true;
@@ -539,7 +549,7 @@ function urgentesParaMi(sr){
 function esperando(sr){
   const counts={};
   sr.chapters.forEach(c=>{
-    if(capCompleto(c))return;
+    if(esOculto(sr,c)||capCompleto(c))return;
     if(!ETAPAS.some(([k])=>esMio(c[k].who)&&c[k].done))return;
     const next=ETAPAS.find(([k])=>!c[k].done);
     if(next)counts[next[0]]=(counts[next[0]]||0)+1;
@@ -605,14 +615,19 @@ function render(){
         <button class="ck ${st.done?"done":me?"pend-me":""}" title="${st.done?"Listo":"Pendiente"}" data-tg="${sr.id}|${c.id}|${k}">✓</button>
         <input type="text" class="${me?"me":""}" value="${esc(st.who)}" placeholder="—" data-who="${sr.id}|${c.id}|${k}">
       </div></td>`}).join("");
+    const oculto=esOculto(sr,c);
     const rowClasses=[];
     if(mine&&!S.filters.mine)rowClasses.push("mine");
     if(c.prio==="URGENTE"&&!capCompleto(c))rowClasses.push("urgent");
+    if(oculto)rowClasses.push("hidden-cap");
     return `<tr class="${rowClasses.join(" ")}">
       <td class="cap">${esc(c.num)}</td>
       <td><span class="prio ${prioClass(c.prio)}" title="Click para cambiar" data-cycleprio="${sr.id}|${c.id}">${esc(c.prio||"—")}</span></td>
       ${cells}
-      <td class="del"><button title="Eliminar capítulo" data-delcap="${sr.id}|${c.id}">✕</button></td>
+      <td class="del">
+        <button title="${oculto?"Mostrar capítulo (contarlo de nuevo como pendiente)":"Ocultar capítulo (sin raw todavía, no contar como pendiente)"}" data-toggleocult="${sr.id}|${c.num}">${oculto?"🚫":"👁"}</button>
+        <button title="Eliminar capítulo" data-delcap="${sr.id}|${c.id}">✕</button>
+      </td>
     </tr>`}).join("");
 
   ct.innerHTML=head+`<div id="tblWrap"><table><thead><tr>
@@ -660,6 +675,7 @@ document.getElementById("content").addEventListener("click",e=>{
   let el=e.target.closest("[data-tg]");if(el){const[s,c,k]=el.dataset.tg.split("|");return tg(s,c,k)}
   el=e.target.closest("[data-cycleprio]");if(el){const[s,c]=el.dataset.cycleprio.split("|");return cyclePrio(s,c)}
   el=e.target.closest("[data-delcap]");if(el){const[s,c]=el.dataset.delcap.split("|");return delCap(s,c)}
+  el=e.target.closest("[data-toggleocult]");if(el){const[s,num]=el.dataset.toggleocult.split("|");return toggleOculto(s,num)}
   el=e.target.closest("[data-addcap]");if(el)return addCap(el.dataset.addcap);
   el=e.target.closest("[data-delserie]");if(el)return delSerie(el.dataset.delserie);
 });
