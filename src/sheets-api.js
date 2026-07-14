@@ -31,6 +31,16 @@ async function authedFetch(url, options = {}) {
   return res.json();
 }
 
+/** Lista las pestañas (hojas) de un spreadsheet — para elegir cuál usar sin
+ * tener que pegar #gid= a mano. Requiere sesión (misma auth que readSheet). */
+export async function listSheetTabs(url) {
+  const id = idFromUrl(url);
+  if (!id) throw new Error("URL inválida");
+  const meta = await authedFetch(`${BASE}/${id}?fields=sheets.properties`);
+  const sheets = meta.sheets || [];
+  return sheets.map((s) => ({ gid: s.properties.sheetId, title: s.properties.title }));
+}
+
 /** Devuelve {id, gid, title, rows:[[...]]} — misma forma que la versión Java. */
 export async function readSheet(url) {
   const id = idFromUrl(url);
