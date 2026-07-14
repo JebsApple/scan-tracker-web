@@ -168,8 +168,10 @@ import { readSheet, writeCell as apiWriteCell, appendRow as apiAppendRow, delete
 
 /* ============ ESTADO ============ */
 const ETAPAS=[["trad","Traducción"],["limp","Limpieza"],["typ","Typeo"],["corr","Corrección"],["sube","Sube"]];
-let S=load()||{aliases:[],series:[],sel:null,clientId:"",filters:{mine:false,prio:"",estado:"",busca:""},whoSnapshot:{}};
+const DEFAULT_CLIENT_ID="50665049250-ipcmj3jr7fakbmabk2tq32ea1nh3id1o.apps.googleusercontent.com";
+let S=load()||{aliases:[],series:[],sel:null,clientId:DEFAULT_CLIENT_ID,filters:{mine:false,prio:"",estado:"",busca:""},whoSnapshot:{}};
 S.whoSnapshot=S.whoSnapshot||{};
+if(!S.clientId)S.clientId=DEFAULT_CLIENT_ID;
 function save(){try{localStorage.setItem("scantracker",JSON.stringify(S))}catch(e){}}
 function load(){try{return JSON.parse(localStorage.getItem("scantracker"))}catch(e){return null}}
 function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2200)}
