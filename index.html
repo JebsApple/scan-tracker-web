@@ -548,8 +548,8 @@ function render(){
   </div>`;
 
   const rows=chs.map(c=>{
-    const mine=ETAPAS.some(([k])=>esMio(c[k].who)&&!c[k].done);
-    const cells=ETAPAS.map(([k])=>{
+    const mine=etapas.some(([k])=>esMio(c[k].who)&&!c[k].done);
+    const cells=etapas.map(([k])=>{
       const st=c[k],me=esMio(st.who);
       return `<td><div class="stage">
         <button class="ck ${st.done?"done":me?"pend-me":""}" title="${st.done?"Listo":"Pendiente"}" data-tg="${sr.id}|${c.id}|${k}">✓</button>
@@ -566,8 +566,8 @@ function render(){
     </tr>`}).join("");
 
   ct.innerHTML=head+`<div id="tblWrap"><table><thead><tr>
-    <th>Cap</th><th>Prioridad</th>${ETAPAS.map(e=>`<th>${e[1]}</th>`).join("")}<th></th>
-  </tr></thead><tbody>${rows||`<tr><td colspan="8" style="color:var(--mut);padding:20px">Nada que mostrar con estos filtros.</td></tr>`}</tbody></table></div>`;
+    <th>Cap</th><th>Prioridad</th>${etapas.map(e=>`<th>${e[1]}</th>`).join("")}<th></th>
+  </tr></thead><tbody>${rows||`<tr><td colspan="${etapas.length+3}" style="color:var(--mut);padding:20px">Nada que mostrar con estos filtros.</td></tr>`}</tbody></table></div>`;
 }
 
 /* ============ ACCIONES (delegadas — sin globals inline) ============ */
