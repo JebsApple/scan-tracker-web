@@ -95,3 +95,7 @@ export async function fetchEmail() {
   const data = await res.json();
   return data.email || "";
 }
+
+// Client ID fijo en el código — no hay opción de configurarlo desde la UI,
+// es un solo login normal de Google, sin nada que pegar/perder.
+export const DEFAULT_CLIENT_ID = "50665049250-07f71ktrd7a8gd8fhg63l3jhv4hdnu6k.apps.googleusercontent.com";

@@ -1,0 +1,6 @@
+:root{
+  --bg:#0c0b0d; --panel:#151318; --panel2:#1c1a21; --line:#2a2730;
+  --txt:#e8e6ec; --mut:#8b8794; --red:#e0322f; --red-dim:#7a1d1c; --red-soft:rgba(224,50,47,.12);
+  --ok:#3ddc84; --warn:#f5b73d;
+  --disp:'Archivo Narrow',sans-serif; --body:'Archivo',sans-serif; --mono:'JetBrains Mono',monospace;
+}
