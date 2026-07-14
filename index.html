@@ -24,11 +24,6 @@ input:focus,select:focus{border-color:var(--red)}
 #top{display:flex;align-items:center;gap:14px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
 #logo{font-family:var(--disp);font-weight:700;font-size:20px;letter-spacing:.08em;text-transform:uppercase}
 #logo b{color:var(--red)}
-.chip{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border:1px solid var(--line);border-radius:99px;font-size:12.5px;color:var(--mut);transition:.15s}
-.chip:hover{border-color:var(--red-dim)}
-.chip.on{background:var(--red-soft);border-color:var(--red);color:var(--txt)}
-.chip.on .dot{background:var(--red)}
-.dot{width:7px;height:7px;border-radius:50%;background:var(--mut)}
 #top .sp{flex:1}
 .btn{padding:7px 13px;border-radius:6px;border:1px solid var(--line);font-size:13px;color:var(--txt);transition:.15s}
 .btn:hover{border-color:var(--red)}
@@ -131,7 +126,7 @@ td.del button:hover{color:var(--red)}
 
 <div id="top">
   <div id="logo">SCAN<b>TRACKER</b></div>
-  <button class="chip" id="fMine"><span class="dot"></span>Mis tareas</button>
+  <button class="btn" id="fMine">Mis tareas</button>
   <select id="fPrio" style="border-radius:99px">
     <option value="">Toda prioridad</option>
     <option value="URGENTE">Urgente</option>
@@ -158,7 +153,6 @@ td.del button:hover{color:var(--red)}
   <button class="btn" id="bSync" title="Recargar hojas vinculadas de Google">⟳ Sincronizar</button>
   <button class="btn" id="bDash">▦ Dashboard</button>
   <button class="btn" id="bHist">☰ Mi historial</button>
-  <button class="btn" id="bPend">▣ Mis pendientes</button>
   <button class="btn" id="bCfg">⚙ Mis nombres</button>
 </div>
 
@@ -206,14 +200,16 @@ function detectEtapaDefs(headerRow){
   }
   return defs.length?defs:ETAPAS;
 }
+// Client ID fijo en el código — no hay opción de configurarlo desde la UI,
+// es un solo login normal de Google, sin nada que pegar/perder.
 const DEFAULT_CLIENT_ID="50665049250-07f71ktrd7a8gd8fhg63l3jhv4hdnu6k.apps.googleusercontent.com";
-let S=load()||{aliases:[],series:[],sel:null,clientId:DEFAULT_CLIENT_ID,filters:{mine:false,prio:"",estado:"",busca:"",etapa:"",orden:""},whoSnapshot:{},historial:[],startedAt:{}};
+let S=load()||{aliases:[],series:[],sel:null,filters:{prio:"",estado:"",busca:"",etapa:"",orden:""},whoSnapshot:{},historial:[],startedAt:{}};
 S.filters.etapa=S.filters.etapa||"";
 S.filters.orden=S.filters.orden||"";
 S.whoSnapshot=S.whoSnapshot||{};
 S.historial=S.historial||[];
 S.startedAt=S.startedAt||{};
-if(!S.clientId||S.clientId==="50665049250-ipcmj3jr7fakbmabk2tq32ea1nh3id1o.apps.googleusercontent.com")S.clientId=DEFAULT_CLIENT_ID;
+delete S.clientId; // limpiar restos de versiones viejas que sí lo guardaban
 
 /* ============ HISTORIAL DESHACER/REHACER ============ */
 // Snapshot completo de S en cada save() — solo en memoria (no persiste al
@@ -301,15 +297,13 @@ function checkDesignations(sr){
   S.whoSnapshot[sr.id]=cur;
 }
 
-if(S.clientId){
-  try{initAuth(S.clientId)}catch(e){}
-  // Reintento silencioso: si ya diste consentimiento antes, no hace falta
-  // tocar "Iniciar sesión" de nuevo en cada recarga. Falla en silencio si el
-  // navegador bloquea el intento o ya no hay sesión activa en Google.
-  trySilentLogin().then(async()=>{
-    gMail=await fetchEmail();paintG();syncAll(false);
-  }).catch(()=>{});
-}
+try{initAuth(DEFAULT_CLIENT_ID)}catch(e){}
+// Reintento silencioso: si ya diste consentimiento antes, no hace falta
+// tocar "Iniciar sesión" de nuevo en cada recarga. Falla en silencio si el
+// navegador bloquea el intento o ya no hay sesión activa en Google.
+trySilentLogin().then(async()=>{
+  gMail=await fetchEmail();paintG();syncAll(false);
+}).catch(()=>{});
 
 /* ============ CSV (fallback lectura pública, sin login) ============ */
 function parseCSV(txt){
@@ -409,7 +403,7 @@ async function pushDelRow(sr,ch){
 }
 
 async function fetchSheet(sr){
-  if(S.clientId&&isSignedIn()){try{await apiFetchSheet(sr);return}catch(e){if(sr.api)throw e}}
+  if(isSignedIn()){try{await apiFetchSheet(sr);return}catch(e){if(sr.api)throw e}}
   sr.api=false;
   const u=gvizUrl(sr.sheetUrl);if(!u)throw new Error("URL inválida");
   const res=await fetch(u);if(!res.ok){const err=new Error("HTTP "+res.status);err.status=res.status;throw err}
@@ -457,10 +451,6 @@ function modalAliases(){
 function modalGoogle(){
   openM(`<h3>Cuenta de Google</h3>
   <div class="fld"><label>Estado</label><div id="gSt" style="font-size:14px;color:var(--mut)"></div></div>
-  <details style="margin-bottom:13px"><summary style="cursor:pointer;font-size:11.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.08em">Avanzado: usar mi propio Client ID</summary>
-    <div class="fld" style="margin-top:8px"><input id="gClientId" placeholder="xxxxx.apps.googleusercontent.com" value="${S.clientId!==DEFAULT_CLIENT_ID?esc(S.clientId):""}">
-    <div class="hint">Solo si corrés tu propia instancia con otro proyecto de Google Cloud. De lo contrario dejalo vacío — la app ya trae uno configurado. Client ID tipo "Aplicación web", requiere agregar tu origen en "Orígenes de JavaScript autorizados" en Google Cloud Console.</div></div>
-  </details>
   <div class="mrow">
     <button class="btn" id="gOutB" style="display:none">Cerrar sesión</button>
     <button class="btn" id="gClose">Cerrar</button>
@@ -472,11 +462,9 @@ function modalGoogle(){
     document.getElementById("gInB").style.display=isSignedIn()?"none":""};
   document.getElementById("gClose").onclick=closeM;
   document.getElementById("gInB").onclick=async()=>{
-    const custom=document.getElementById("gClientId").value.trim();
-    const cid=custom||DEFAULT_CLIENT_ID;
-    if(cid!==S.clientId){S.clientId=cid;save();initAuth(cid)}
     const b=document.getElementById("gInB");b.textContent="Abriendo popup de Google...";b.disabled=true;
     try{
+      initAuth(DEFAULT_CLIENT_ID); // idempotente, defensivo por si el init inicial falló en silencio
       await requestToken();
       gMail=await fetchEmail();
       paintG();st();toast("Sesión iniciada");syncAll(false);
@@ -678,7 +666,6 @@ function render(){
 
   // filtros UI
   const sr=S.series.find(x=>x.id===S.sel);
-  document.getElementById("fMine").classList.toggle("on",S.filters.mine);
   document.getElementById("fPrio").value=S.filters.prio;
   document.getElementById("fEstado").value=S.filters.estado;
   // Las opciones de etapa dependen de la serie seleccionada — distintas hojas
@@ -698,7 +685,6 @@ function render(){
     if(S.filters.prio&&c.prio!==S.filters.prio)return false;
     if(S.filters.estado==="pend"&&capCompleto(sr,c))return false;
     if(S.filters.estado==="done"&&!capCompleto(sr,c))return false;
-    if(S.filters.mine&&!etapas.some(([k])=>esMio(c[k].who)&&!c[k].done))return false;
     const b=norm(S.filters.busca);
     if(b&&!etapas.some(([k])=>norm(c[k].who).includes(b)))return false;
     return true;
@@ -726,7 +712,7 @@ function render(){
       </div></td>`}).join("");
     const oculto=esOculto(sr,c);
     const rowClasses=[];
-    if(mine&&!S.filters.mine)rowClasses.push("mine");
+    if(mine)rowClasses.push("mine");
     if(c.prio==="URGENTE"&&!capCompleto(sr,c))rowClasses.push("urgent");
     if(oculto)rowClasses.push("hidden-cap");
     return `<tr class="${rowClasses.join(" ")}">
@@ -793,7 +779,7 @@ document.getElementById("content").addEventListener("change",e=>{
   const[s,c,k]=el.dataset.who.split("|");setWho(s,c,k,el.value);
 });
 
-document.getElementById("fMine").onclick=()=>{S.filters.mine=!S.filters.mine;save();render()};
+document.getElementById("fMine").onclick=modalMisPendientes;
 document.getElementById("fPrio").onchange=e=>{S.filters.prio=e.target.value;save();render()};
 document.getElementById("fEstado").onchange=e=>{S.filters.estado=e.target.value;save();render()};
 document.getElementById("fEtapa").onchange=e=>{S.filters.etapa=e.target.value;save();render()};
@@ -802,7 +788,6 @@ document.getElementById("fBusca").oninput=e=>{S.filters.busca=e.target.value;ren
 document.getElementById("bCfg").onclick=modalAliases;
 document.getElementById("bDash").onclick=modalDashboard;
 document.getElementById("bHist").onclick=modalHistorial;
-document.getElementById("bPend").onclick=modalMisPendientes;
 document.getElementById("bGoogle").onclick=modalGoogle;
 document.getElementById("bAddSerie").onclick=modalSerie;
 document.getElementById("bSync").onclick=()=>syncAll(true);
