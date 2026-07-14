@@ -34,6 +34,7 @@ input:focus,select:focus{border-color:var(--red)}
 .btn:hover{border-color:var(--red)}
 .btn.red{background:var(--red);border-color:var(--red);font-weight:600}
 .btn.red:hover{background:#c92825}
+.btn:disabled{opacity:.35;cursor:default;pointer-events:none}
 
 /* LAYOUT */
 #main{flex:1;display:flex;overflow:hidden}
@@ -152,6 +153,8 @@ td.del button:hover{color:var(--red)}
   <input id="fBusca" placeholder="Buscar persona..." style="border-radius:99px;width:150px">
   <div class="sp"></div>
   <button class="btn" id="bGoogle">Conectar Google</button>
+  <button class="btn" id="bUndo" title="Deshacer" disabled>↩</button>
+  <button class="btn" id="bRedo" title="Rehacer" disabled>↪</button>
   <button class="btn" id="bSync" title="Recargar hojas vinculadas de Google">⟳ Sincronizar</button>
   <button class="btn" id="bDash">📊 Dashboard</button>
   <button class="btn" id="bHist">🕘 Mi historial</button>
@@ -188,7 +191,40 @@ S.whoSnapshot=S.whoSnapshot||{};
 S.historial=S.historial||[];
 S.startedAt=S.startedAt||{};
 if(!S.clientId||S.clientId==="50665049250-ipcmj3jr7fakbmabk2tq32ea1nh3id1o.apps.googleusercontent.com")S.clientId=DEFAULT_CLIENT_ID;
-function save(){try{localStorage.setItem("scantracker",JSON.stringify(S))}catch(e){}}
+
+/* ============ HISTORIAL DESHACER/REHACER ============ */
+// Snapshot completo de S en cada save() — solo en memoria (no persiste al
+// recargar la página, es intencional, evita hinchar localStorage). No revierte
+// cambios ya escritos en Google Sheets, solo el estado local.
+const MAX_HISTORY=50;
+let history=[JSON.stringify(S)],historyIndex=0;
+function pushHistory(){
+  const snap=JSON.stringify(S);
+  if(history[historyIndex]===snap)return;
+  history=history.slice(0,historyIndex+1);
+  history.push(snap);
+  if(history.length>MAX_HISTORY)history.shift();else historyIndex++;
+  historyIndex=history.length-1;
+  paintUndoRedo();
+}
+function paintUndoRedo(){
+  const bu=document.getElementById("bUndo"),br=document.getElementById("bRedo");
+  if(!bu||!br)return;
+  bu.disabled=historyIndex<=0;br.disabled=historyIndex>=history.length-1;
+}
+function undo(){
+  if(historyIndex<=0)return toast("Nada para deshacer");
+  historyIndex--;S=JSON.parse(history[historyIndex]);
+  try{localStorage.setItem("scantracker",JSON.stringify(S))}catch(e){}
+  render();paintG();paintUndoRedo();toast("Deshecho (solo local, no revierte lo ya escrito en Sheets)");
+}
+function redo(){
+  if(historyIndex>=history.length-1)return toast("Nada para rehacer");
+  historyIndex++;S=JSON.parse(history[historyIndex]);
+  try{localStorage.setItem("scantracker",JSON.stringify(S))}catch(e){}
+  render();paintG();paintUndoRedo();toast("Rehecho");
+}
+function save(){try{localStorage.setItem("scantracker",JSON.stringify(S))}catch(e){}pushHistory();}
 function load(){try{return JSON.parse(localStorage.getItem("scantracker"))}catch(e){return null}}
 function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2200)}
 const uid=()=>Math.random().toString(36).slice(2,9);
@@ -698,6 +734,9 @@ document.getElementById("bHist").onclick=modalHistorial;
 document.getElementById("bGoogle").onclick=modalGoogle;
 document.getElementById("bAddSerie").onclick=modalSerie;
 document.getElementById("bSync").onclick=()=>syncAll(true);
+document.getElementById("bUndo").onclick=undo;
+document.getElementById("bRedo").onclick=redo;
+paintUndoRedo();
 document.getElementById("bExport").onclick=()=>{
   const sr=S.series.find(x=>x.id===S.sel);if(!sr)return toast("Selecciona una serie");
   let csv="Capítulos,Prioridad,TRADUCCIÓN,LISTO,LIMPIEZA,LISTO,TYPEO,LISTO,CORRECCIÓN,LISTO,SUBE,LISTO\n";
