@@ -281,7 +281,7 @@ function gvizUrl(url){
 let gMail="";
 function paintG(){const b=document.getElementById("bGoogle");if(!b)return;
   if(isSignedIn()){b.textContent="● "+(gMail||"Google");b.style.borderColor="var(--ok)"}
-  else{b.textContent=S.clientId?"Conectar Google":"⚙ Configurar Google";b.style.borderColor=""}}
+  else{b.textContent="Conectar Google";b.style.borderColor=""}}
 
 async function apiFetchSheet(sr){
   const data=await readSheet(sr.sheetUrl);
@@ -669,7 +669,6 @@ window.scantrackerDebug=on=>{S.debug=!!on;save();console.log("[scantracker] debu
 render();
 paintG();
 if(!S.aliases.length&&!S.series.length)setTimeout(modalAliases,400);
-if(!S.clientId)setTimeout(()=>toast("Configurá tu Google Client ID en 'Conectar Google' para hojas privadas"),800);
 </script>
 </body>
 </html>
