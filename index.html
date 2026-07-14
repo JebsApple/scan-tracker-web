@@ -6,127 +6,98 @@
 <title>Scan Tracker</title>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700&family=Archivo+Narrow:wght@500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
-<style>
-:root{
-  --bg:#0c0b0d; --panel:#151318; --panel2:#1c1a21; --line:#2a2730;
-  --txt:#e8e6ec; --mut:#8b8794; --red:#e0322f; --red-dim:#7a1d1c; --red-soft:rgba(224,50,47,.12);
-  --ok:#3ddc84; --warn:#f5b73d;
-  --disp:'Archivo Narrow',sans-serif; --body:'Archivo',sans-serif; --mono:'JetBrains Mono',monospace;
-}
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--txt);font-family:var(--body);font-size:14px;height:100vh;display:flex;flex-direction:column;overflow:hidden}
-button{font-family:var(--body);cursor:pointer;border:none;background:none;color:inherit}
-input,select{font-family:var(--body);background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:6px 9px;font-size:13px;outline:none}
-input:focus,select:focus{border-color:var(--red)}
-::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
-
-/* TOPBAR */
-#top{display:flex;align-items:center;gap:14px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
-#logo{font-family:var(--disp);font-weight:700;font-size:20px;letter-spacing:.08em;text-transform:uppercase}
-#logo b{color:var(--red)}
-#top .sp{flex:1}
-.btn{padding:7px 13px;border-radius:6px;border:1px solid var(--line);font-size:13px;color:var(--txt);transition:.15s}
-.btn:hover{border-color:var(--red)}
-.btn.red{background:var(--red);border-color:var(--red);font-weight:600}
-.btn.red:hover{background:#c92825}
-.btn:disabled{opacity:.35;cursor:default;pointer-events:none}
-
-/* LAYOUT */
-#main{flex:1;display:flex;overflow:hidden}
-#side{width:270px;min-width:270px;border-right:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;overflow:hidden}
-#side h3{font-family:var(--disp);font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut);padding:14px 14px 8px}
-#serieList{flex:1;overflow-y:auto;padding:0 8px 8px}
-.serie{padding:10px 10px;border-radius:8px;cursor:pointer;margin-bottom:4px;border:1px solid transparent}
-.serie:hover{background:var(--panel2)}
-.serie.sel{background:var(--panel2);border-color:var(--red-dim)}
-.serie .nm{font-weight:600;font-size:13.5px;display:flex;justify-content:space-between;gap:6px}
-.serie .nm span:last-child{color:var(--mut);font-family:var(--mono);font-size:11px;flex-shrink:0}
-.pbar{height:4px;background:var(--line);border-radius:2px;margin-top:7px;overflow:hidden}
-.pbar i{display:block;height:100%;background:var(--red);border-radius:2px;transition:width .3s}
-.serie .mt{font-size:11px;color:var(--mut);margin-top:5px;display:flex;gap:8px}
-.serie .mt .u{color:var(--red);font-weight:600}
-.serie .mt .m{color:var(--warn)}
-.serie .mt .e{color:var(--ok)}
-#sideFoot{padding:10px;border-top:1px solid var(--line);display:flex;gap:6px}
-#sideFoot .btn{flex:1;text-align:center;font-size:12.5px}
-
-/* CONTENT */
-#content{flex:1;display:flex;flex-direction:column;overflow:hidden}
-#serieHead{padding:14px 18px 10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-#serieHead h2{font-family:var(--disp);font-size:24px;letter-spacing:.03em;text-transform:uppercase}
-#serieHead .stats{font-family:var(--mono);font-size:12px;color:var(--mut)}
-#serieHead .sp{flex:1}
-#tblWrap{flex:1;overflow:auto;padding:0 18px 18px}
-table{width:100%;border-collapse:collapse;font-size:13px}
-th{position:sticky;top:0;background:var(--bg);font-family:var(--disp);font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);text-align:left;padding:8px 8px;border-bottom:2px solid var(--red-dim);z-index:2;white-space:nowrap}
-td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
-tr:hover td{background:rgba(255,255,255,.02)}
-tr.mine td{background:var(--red-soft)}
-tr.urgent td:first-child{box-shadow:inset 3px 0 0 var(--red)}
-tr.hidden-cap{opacity:.4}
-td.del{white-space:nowrap}
-td.del button{margin-left:2px}
-td.cap{font-family:var(--mono);font-weight:700;font-size:13px}
-.prio{font-size:10.5px;font-weight:700;letter-spacing:.06em;padding:3px 8px;border-radius:4px;text-transform:uppercase;cursor:pointer;white-space:nowrap}
-.prio.URGENTE{background:rgba(224,50,47,.18);color:#ff6b69}
-.prio.MODERADO{background:rgba(245,183,61,.14);color:var(--warn)}
-.prio.ATU{background:rgba(139,135,148,.15);color:var(--mut)}
-.stage{display:flex;align-items:center;gap:7px;min-width:120px}
-.stage input[type=text]{width:92px;padding:4px 7px;font-size:12px;background:transparent;border-color:transparent}
-.stage input[type=text]:hover{border-color:var(--line)}
-.stage input[type=text]:focus{background:var(--panel2);border-color:var(--red)}
-.stage input.me{color:var(--red);font-weight:700}
-.ck{width:17px;height:17px;border-radius:4px;border:1.5px solid var(--mut);display:inline-flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;transition:.12s;color:transparent}
-.ck.done{background:var(--ok);border-color:var(--ok);color:#0b0b0d;font-weight:900}
-.ck.pend-me{border-color:var(--red);box-shadow:0 0 0 3px var(--red-soft)}
-td.del button{color:var(--mut);font-size:15px;padding:2px 6px}
-td.del button:hover{color:var(--red)}
-#empty{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;color:var(--mut)}
-#empty .big{font-family:var(--disp);font-size:30px;text-transform:uppercase;letter-spacing:.06em;color:var(--txt)}
-
-/* MODAL */
-#ovl{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;z-index:50}
-#ovl.show{display:flex}
-.modal{background:var(--panel);border:1px solid var(--line);border-top:3px solid var(--red);border-radius:10px;width:min(560px,92vw);max-height:86vh;overflow-y:auto;padding:20px}
-.modal h3{font-family:var(--disp);font-size:18px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px}
-.fld{margin-bottom:13px}
-.fld label{display:block;font-size:11.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);margin-bottom:5px}
-.fld input,.fld select,.fld textarea{width:100%}
-.fld textarea{font-family:var(--mono);font-size:12px;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:8px;min-height:110px;resize:vertical}
-.fld .hint{font-size:11.5px;color:var(--mut);margin-top:4px;line-height:1.45}
-.tagrow{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
-.tag{display:inline-flex;align-items:center;gap:6px;background:var(--red-soft);border:1px solid var(--red-dim);color:var(--txt);padding:4px 10px;border-radius:99px;font-size:12.5px}
-.tag button{color:var(--mut);font-size:13px}
-.tag button:hover{color:var(--red)}
-.mrow{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
-.dashGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:16px}
-.dashCard{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px}
-.dashCard .n{font-family:var(--disp);font-size:26px;font-weight:700}
-.dashCard .l{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
-.dashCard.warn .n{color:var(--warn)}
-.dashCard.urg .n{color:#ff6b69}
-.dashTbl{width:100%;border-collapse:collapse;font-size:12.5px}
-.dashTbl th{text-align:left;color:var(--mut);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--line);font-size:11px;text-transform:uppercase;letter-spacing:.05em}
-.dashTbl td{padding:6px 8px;border-bottom:1px solid var(--line)}
-#toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--red);padding:9px 18px;border-radius:8px;font-size:13px;opacity:0;pointer-events:none;transition:.25s;z-index:60}
-#toast.show{opacity:1}
-@media(max-width:760px){#side{width:200px;min-width:200px}.stage input[type=text]{width:64px}}
-@media(max-width:600px){
-  #top{padding:8px 10px;gap:8px}
-  #fBusca{width:110px}
-  #main{flex-direction:column}
-  #side{width:100%;min-width:0;max-height:140px;border-right:none;border-bottom:1px solid var(--line)}
-  #serieHead h2{font-size:19px}
-  .stage{min-width:100px}
-  .stage input[type=text]{width:56px}
-}
-</style>
+<link rel="stylesheet" href="styles/tokens.css">
+<link rel="stylesheet" href="styles/base.css">
+<link rel="stylesheet" href="styles/components.css">
 </head>
 <body>
 
+<!-- Sprite de íconos SVG (Lucide) inline en el body — así los <use> de más
+     abajo resuelven en el primer render, sin parpadeo por un fetch async. -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+  <symbol id="i-layout-dashboard" viewBox="0 0 24 24">
+    <rect width="7" height="9" x="3" y="3" rx="1" />
+    <rect width="7" height="5" x="14" y="3" rx="1" />
+    <rect width="7" height="9" x="14" y="12" rx="1" />
+    <rect width="7" height="5" x="3" y="16" rx="1" />
+  </symbol>
+  <symbol id="i-list-checks" viewBox="0 0 24 24">
+    <path d="M13 5h8" />
+    <path d="M13 12h8" />
+    <path d="M13 19h8" />
+    <path d="m3 17 2 2 4-4" />
+    <path d="m3 7 2 2 4-4" />
+  </symbol>
+  <symbol id="i-refresh-cw" viewBox="0 0 24 24">
+    <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+    <path d="M21 3v5h-5" />
+    <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+    <path d="M8 16H3v5" />
+  </symbol>
+  <symbol id="i-undo-2" viewBox="0 0 24 24">
+    <path d="M9 14 4 9l5-5" />
+    <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11" />
+  </symbol>
+  <symbol id="i-redo-2" viewBox="0 0 24 24">
+    <path d="m15 14 5-5-5-5" />
+    <path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5A5.5 5.5 0 0 0 9.5 20H13" />
+  </symbol>
+  <symbol id="i-log-in" viewBox="0 0 24 24">
+    <path d="m10 17 5-5-5-5" />
+    <path d="M15 12H3" />
+    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+  </symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24">
+    <path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" />
+    <circle cx="12" cy="12" r="3" />
+  </symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24">
+    <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
+    <circle cx="12" cy="12" r="3" />
+  </symbol>
+  <symbol id="i-eye-off" viewBox="0 0 24 24">
+    <path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49" />
+    <path d="M14.084 14.158a3 3 0 0 1-4.242-4.242" />
+    <path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143" />
+    <path d="m2 2 20 20" />
+  </symbol>
+  <symbol id="i-cloud" viewBox="0 0 24 24">
+    <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
+  </symbol>
+  <symbol id="i-alert-triangle" viewBox="0 0 24 24">
+    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
+    <path d="M12 9v4" />
+    <path d="M12 17h.01" />
+  </symbol>
+  <symbol id="i-history" viewBox="0 0 24 24">
+    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+    <path d="M3 3v5h5" />
+    <path d="M12 7v5l4 2" />
+  </symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24">
+    <path d="M5 12h14" />
+    <path d="M12 5v14" />
+  </symbol>
+  <symbol id="i-x" viewBox="0 0 24 24">
+    <path d="M18 6 6 18" />
+    <path d="m6 6 12 12" />
+  </symbol>
+  <symbol id="i-check" viewBox="0 0 24 24">
+    <path d="M20 6 9 17l-5-5" />
+  </symbol>
+  <symbol id="i-chevron-down" viewBox="0 0 24 24">
+    <path d="m6 9 6 6 6-6" />
+  </symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24">
+    <path d="M12 3v12" />
+    <path d="m17 8-5-5-5 5" />
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+  </symbol>
+</svg>
+
 <div id="top">
   <div id="logo">SCAN<b>TRACKER</b></div>
-  <button class="btn" id="fMine">Mis tareas</button>
+  <button class="btn" id="fMine"><svg class="icon"><use href="#i-list-checks"/></svg> Mis tareas</button>
   <select id="fPrio" style="border-radius:99px">
     <option value="">Toda prioridad</option>
     <option value="URGENTE">Urgente</option>
@@ -147,13 +118,13 @@ td.del button:hover{color:var(--red)}
   </select>
   <input id="fBusca" placeholder="Buscar persona..." style="border-radius:99px;width:150px">
   <div class="sp"></div>
-  <button class="btn" id="bGoogle">Conectar Google</button>
-  <button class="btn" id="bUndo" title="Deshacer" disabled>↩</button>
-  <button class="btn" id="bRedo" title="Rehacer" disabled>↪</button>
-  <button class="btn" id="bSync" title="Recargar hojas vinculadas de Google">⟳ Sincronizar</button>
-  <button class="btn" id="bDash">▦ Dashboard</button>
-  <button class="btn" id="bHist">☰ Mi historial</button>
-  <button class="btn" id="bCfg">⚙ Mis nombres</button>
+  <button class="btn" id="bGoogle"><svg class="icon"><use href="#i-log-in"/></svg> Conectar Google</button>
+  <button class="btn" id="bUndo" title="Deshacer" disabled><svg class="icon"><use href="#i-undo-2"/></svg></button>
+  <button class="btn" id="bRedo" title="Rehacer" disabled><svg class="icon"><use href="#i-redo-2"/></svg></button>
+  <button class="btn" id="bSync" title="Recargar hojas vinculadas de Google"><svg class="icon"><use href="#i-refresh-cw"/></svg> Sincronizar</button>
+  <button class="btn" id="bDash"><svg class="icon"><use href="#i-layout-dashboard"/></svg> Dashboard</button>
+  <button class="btn" id="bHist"><svg class="icon"><use href="#i-history"/></svg> Mi historial</button>
+  <button class="btn" id="bCfg"><svg class="icon"><use href="#i-settings"/></svg> Mis nombres</button>
 </div>
 
 <div id="main">
@@ -162,7 +133,7 @@ td.del button:hover{color:var(--red)}
     <div id="serieList"></div>
     <div id="sideFoot">
       <button class="btn red" id="bAddSerie">+ Serie</button>
-      <button class="btn" id="bExport">Exportar</button>
+      <button class="btn" id="bExport"><svg class="icon"><use href="#i-upload"/></svg> Exportar</button>
     </div>
   </div>
   <div id="content"></div>
@@ -172,721 +143,6 @@ td.del button:hover{color:var(--red)}
 <div id="toast"></div>
 <input type="file" id="csvFile" accept=".csv,.txt" style="display:none">
 
-<script type="module">
-import { initAuth, requestToken, getAccessToken, isSignedIn, signOut as gSignOut, fetchEmail, trySilentLogin } from "./src/auth.js";
-import { readSheet, writeCell as apiWriteCell, appendRow as apiAppendRow, deleteRow as apiDeleteRow, listSheetTabs } from "./src/sheets-api.js";
-import { listSharedSheets } from "./src/drive-api.js";
-
-/* ============ ESTADO ============ */
-// ETAPAS es el contrato POR DEFECTO (series manuales/CSV sin encabezado
-// detectable). Series sincronizadas con Sheets pueden tener su propio
-// sr.etapaDefs (mismo formato [key,label]) autodetectado del encabezado real
-// de esa hoja — no todos los equipos usan las mismas 5 etapas. Las claves
-// internas (trad/limp/typ/corr/sube) son siempre POSICIONALES (1ra etapa del
-// sheet, 2da, etc), no atadas al nombre real de la etapa — por eso COLW más
-// abajo sigue funcionando sin cambios aunque el nombre real sea otro.
-const ETAPAS=[["trad","Traducción"],["limp","Limpieza"],["typ","Typeo"],["corr","Corrección"],["sube","Sube"]];
-const ETAPA_KEYS=ETAPAS.map(([k])=>k);
-const etapasDe=sr=>(sr&&sr.etapaDefs)||ETAPAS;
-// Detecta pares (who,done) desde la fila de encabezado real de un Sheet.
-// Columnas 0/1 son Capítulo/Prioridad, desde la 2 en adelante se asume
-// alternancia who,done por cada etapa — funciona con 4, 5, o cualquier
-// cantidad de etapas mientras respeten ese patrón.
-function detectEtapaDefs(headerRow){
-  const defs=[];
-  for(let i=2,k=0;i+1<headerRow.length+1&&k<ETAPA_KEYS.length;i+=2,k++){
-    const label=String(headerRow[i]||"").trim();
-    if(!label)break;
-    defs.push([ETAPA_KEYS[k],label]);
-  }
-  return defs.length?defs:ETAPAS;
-}
-// Client ID fijo en el código — no hay opción de configurarlo desde la UI,
-// es un solo login normal de Google, sin nada que pegar/perder.
-const DEFAULT_CLIENT_ID="50665049250-07f71ktrd7a8gd8fhg63l3jhv4hdnu6k.apps.googleusercontent.com";
-let S=load()||{aliases:[],series:[],sel:null,filters:{prio:"",estado:"",busca:"",etapa:"",orden:""},whoSnapshot:{},historial:[],startedAt:{},log:[]};
-S.filters.etapa=S.filters.etapa||"";
-S.filters.orden=S.filters.orden||"";
-S.whoSnapshot=S.whoSnapshot||{};
-S.historial=S.historial||[];
-S.startedAt=S.startedAt||{};
-S.log=S.log||[];
-delete S.clientId; // limpiar restos de versiones viejas que sí lo guardaban
-delete S.debug; // reemplazado por el log persistente (logEvent/modalLog)
-
-/** Registra un fallo de sync/API en S.log — reemplaza el scantrackerDebug()
- * temporal, ahora es un log real inspeccionable/exportable desde la UI en
- * vez de tener que abrir devtools. */
-function logEvent(tipo,detalle){
-  S.log.unshift({fecha:new Date().toISOString(),tipo,detalle});
-  if(S.log.length>200)S.log.length=200;
-  save();
-}
-
-/* ============ HISTORIAL DESHACER/REHACER ============ */
-// Snapshot completo de S en cada save() — solo en memoria (no persiste al
-// recargar la página, es intencional, evita hinchar localStorage). No revierte
-// cambios ya escritos en Google Sheets, solo el estado local.
-const MAX_HISTORY=50;
-let history=[JSON.stringify(S)],historyIndex=0;
-function pushHistory(){
-  const snap=JSON.stringify(S);
-  if(history[historyIndex]===snap)return;
-  history=history.slice(0,historyIndex+1);
-  history.push(snap);
-  if(history.length>MAX_HISTORY)history.shift();else historyIndex++;
-  historyIndex=history.length-1;
-  paintUndoRedo();
-}
-function paintUndoRedo(){
-  const bu=document.getElementById("bUndo"),br=document.getElementById("bRedo");
-  if(!bu||!br)return;
-  bu.disabled=historyIndex<=0;br.disabled=historyIndex>=history.length-1;
-}
-// Deshacer/rehacer NUNCA debe dejar sr.srcRow (fila real en el Sheet)
-// desalineado con lo que hay escrito de verdad — si eso pasa, la próxima
-// escritura (pushCell) apunta a la fila equivocada y corrompe datos de otra
-// persona. Por eso, tras cualquier undo/redo, toda serie vinculada a Sheets
-// se re-sincroniza desde la fuente real en vez de confiar en el snapshot: el
-// undo revierte cosas puramente locales (alias, ocultos, filtros, historial)
-// con certeza; para capítulos de una serie con Sheets, gana siempre el dato
-// remoto real, nunca el snapshot.
-async function resyncLinkedSeries(){
-  for(const sr of S.series.filter(s=>s.sheetUrl)){
-    try{await fetchSheet(sr);checkDesignations(sr)}catch(e){/* sin conexión: se queda con lo último conocido */}
-  }
-  save();
-}
-async function undo(){
-  if(historyIndex<=0)return toast("Nada para deshacer");
-  historyIndex--;S=JSON.parse(history[historyIndex]);
-  try{localStorage.setItem("scantracker",JSON.stringify(S))}catch(e){}
-  render();paintG();paintUndoRedo();
-  toast("Deshecho — re-sincronizando series con Sheets...");
-  await resyncLinkedSeries();render();paintUndoRedo();
-}
-async function redo(){
-  if(historyIndex>=history.length-1)return toast("Nada para rehacer");
-  historyIndex++;S=JSON.parse(history[historyIndex]);
-  try{localStorage.setItem("scantracker",JSON.stringify(S))}catch(e){}
-  render();paintG();paintUndoRedo();
-  toast("Rehecho — re-sincronizando series con Sheets...");
-  await resyncLinkedSeries();render();paintUndoRedo();
-}
-function save(){try{localStorage.setItem("scantracker",JSON.stringify(S))}catch(e){}pushHistory();}
-function load(){try{return JSON.parse(localStorage.getItem("scantracker"))}catch(e){return null}}
-function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2200)}
-const uid=()=>Math.random().toString(36).slice(2,9);
-const norm=s=>(s||"").trim().toLowerCase();
-const esMio=n=>n&&S.aliases.some(a=>norm(a)===norm(n));
-const prioClass=p=>p==="URGENTE"?"URGENTE":p==="MODERADO"?"MODERADO":"ATU";
-const PRIOS=["URGENTE","MODERADO","A TU TIEMPO"];
-
-// Traduce errores de red/API a mensajes accionables. gvizUrl (fetch nativo)
-// no trae `.status` estructurado, se extrae del prefijo "HTTP <code>".
-function friendlyError(e){
-  const status=e?.status??Number((String(e?.message||"").match(/HTTP (\d+)/)||[])[1]);
-  if(status===401)return"Sesión de Google vencida — reconectá en 'Conectar Google'";
-  if(status===403)return"Sin permiso para esta hoja — revisá que tu cuenta de Google tenga acceso";
-  if(status===404)return"Hoja no encontrada — revisá la URL (¿la borraron o cambiaron el gid?)";
-  if(status===429)return"Límite de solicitudes de Google alcanzado — esperá un minuto y reintentá";
-  if(!navigator.onLine)return"Sin conexión a internet";
-  return e?.message||"Error desconocido";
-}
-
-/* ============ NOTIFICACIONES DE DESIGNACIÓN ============ */
-function notifyDesignation(serieName,capNum,etapaLabel){
-  const title="Te asignaron un capítulo";
-  const body=`${serieName} — Cap. ${capNum} (${etapaLabel})`;
-  if(!("Notification" in window)){toast(`${title}: ${body}`);return}
-  if(Notification.permission==="granted"){new Notification(title,{body});return}
-  if(Notification.permission==="denied"){toast(`${title}: ${body}`);return}
-  Notification.requestPermission().then(perm=>{
-    if(perm==="granted")new Notification(title,{body});
-    else toast(`${title}: ${body}`);
-  }).catch(()=>toast(`${title}: ${body}`));
-}
-// Compara el estado actual de who-por-etapa contra el snapshot guardado en S.
-// Solo notifica cuando mi alias aparece donde antes NO estaba (no en la primera carga,
-// ya que sin snapshot previo solo se establece la línea base).
-function checkDesignations(sr){
-  const prev=S.whoSnapshot[sr.id];
-  const cur={};
-  sr.chapters.forEach(c=>etapasDe(sr).forEach(([k])=>{cur[`${c.num}|${k}`]=norm(c[k].who)}));
-  if(prev){
-    Object.keys(cur).forEach(key=>{
-      const wasMine=esMio(prev[key]||"");
-      const isMine=esMio(cur[key]);
-      if(!wasMine&&isMine){
-        const[num,etk]=key.split("|");
-        const etLabel=(etapasDe(sr).find(([k])=>k===etk)||[])[1]||etk;
-        notifyDesignation(sr.name,num,etLabel);
-      }
-    });
-  }
-  S.whoSnapshot[sr.id]=cur;
-}
-
-try{initAuth(DEFAULT_CLIENT_ID)}catch(e){}
-// Reintento silencioso: si ya diste consentimiento antes, no hace falta
-// tocar "Iniciar sesión" de nuevo en cada recarga. Falla en silencio si el
-// navegador bloquea el intento o ya no hay sesión activa en Google.
-trySilentLogin().then(async()=>{
-  gMail=await fetchEmail();paintG();syncAll(false);
-}).catch(()=>{});
-
-/* ============ CSV (fallback lectura pública, sin login) ============ */
-function parseCSV(txt){
-  const rows=[];let row=[],cur="",q=false;
-  for(let i=0;i<txt.length;i++){const c=txt[i];
-    if(q){if(c=='"'){if(txt[i+1]=='"'){cur+='"';i++}else q=false}else cur+=c}
-    else{if(c=='"')q=true;else if(c==',')(row.push(cur),cur="");
-      else if(c=='\n'||c=='\r'){if(c=='\r'&&txt[i+1]=='\n')i++;row.push(cur);rows.push(row);row=[];cur=""}
-      else cur+=c}}
-  if(cur||row.length){row.push(cur);rows.push(row)}
-  return rows;
-}
-// Devuelve {chapters, etapaDefs} — etapaDefs autodetectado del encabezado
-// real de la hoja (ver detectEtapaDefs), o el contrato por defecto (ETAPAS)
-// si no se encontró encabezado (CSV pegado sin fila de título, por ejemplo).
-function csvToChapters(rows,track){
-  let start=0,headerRow=null;
-  for(let i=0;i<Math.min(rows.length,3);i++){
-    if(rows[i].some(c=>/^cap/i.test(String(c).trim()))){headerRow=rows[i];start=i+1;break}
-  }
-  const etapaDefs=headerRow?detectEtapaDefs(headerRow):ETAPAS;
-  const chs=[];
-  for(let i=start;i<rows.length;i++){
-    const r=rows[i];if(!r[0]||!String(r[0]).trim())continue;
-    const T=v=>String(v||"").trim().toUpperCase()==="TRUE";
-    const ch={id:uid(),num:String(r[0]).trim(),prio:String(r[1]||"").trim().toUpperCase(),
-      srcRow:track?i+1:null};
-    etapaDefs.forEach(([key],idx)=>{
-      const whoCol=2+idx*2,doneCol=3+idx*2;
-      ch[key]={who:(r[whoCol]||"").trim(),done:T(r[doneCol])};
-    });
-    chs.push(ch);
-  }
-  return {chapters:chs,etapaDefs};
-}
-function gvizUrl(url){
-  const m=url.match(/\/d\/([\w-]+)/);if(!m)return null;
-  const g=url.match(/[#&?]gid=(\d+)/);
-  return `https://docs.google.com/spreadsheets/d/${m[1]}/gviz/tq?tqx=out:csv${g?`&gid=${g[1]}`:""}`;
-}
-
-/* ============ GOOGLE (Sheets API v4 directo desde el browser, vía GIS) ============ */
-let gMail="";
-function paintG(){const b=document.getElementById("bGoogle");if(!b)return;
-  if(isSignedIn()){b.textContent="● "+(gMail||"Google");b.style.borderColor="var(--ok)"}
-  else{b.textContent="Conectar Google";b.style.borderColor=""}}
-
-async function apiFetchSheet(sr){
-  const data=await readSheet(sr.sheetUrl);
-  sr._ssId=data.id;sr._gid=data.gid;sr._title=data.title;
-  const rows=data.rows.map(r=>r.map(c=>String(c??"")));
-  const {chapters:chs,etapaDefs}=csvToChapters(rows,true);
-  if(chs.length){sr.chapters=chs;sr.etapaDefs=etapaDefs;}
-  sr.api=true;sr.lastSync=new Date().toLocaleTimeString();
-}
-const COLW={trad:["C","D"],limp:["E","F"],typ:["G","H"],corr:["I","J"],sube:["K","L"]};
-async function pushCell(sr,ch,col,val){
-  if(!sr?.api||!ch.srcRow)return;
-  try{await apiWriteCell(sr.sheetUrl,sr._title,col+ch.srcRow,String(val))}
-  catch(e){const msg=friendlyError(e);logEvent("Escritura fallida",`${sr.name} cap ${ch.num}: ${msg}`);toast("No se pudo escribir: "+msg)}
-}
-async function pushNewRow(sr,ch){
-  if(!sr?.api)return;
-  try{const row=await apiAppendRow(sr.sheetUrl,sr._title,
-    [ch.num,ch.prio,...etapasDe(sr).flatMap(()=>["",false])]);
-    if(row>0){ch.srcRow=row;save()}
-  }catch(e){const msg=friendlyError(e);logEvent("Fila no agregada",`${sr.name} cap ${ch.num}: ${msg}`);toast("No se pudo agregar fila: "+msg)}
-}
-async function pushDelRow(sr,ch){
-  if(!sr?.api||!ch.srcRow)return;
-  try{await apiDeleteRow(sr.sheetUrl,sr._gid,ch.srcRow);
-    sr.chapters.forEach(c=>{if(c.srcRow>ch.srcRow)c.srcRow--});
-    save();
-  }catch(e){const msg=friendlyError(e);logEvent("Fila no borrada",`${sr.name} cap ${ch.num}: ${msg}`);toast("No se pudo borrar fila: "+msg)}
-}
-
-async function fetchSheet(sr){
-  if(isSignedIn()){try{await apiFetchSheet(sr);return}catch(e){if(sr.api)throw e}}
-  sr.api=false;
-  const u=gvizUrl(sr.sheetUrl);if(!u)throw new Error("URL inválida");
-  const res=await fetch(u);if(!res.ok){const err=new Error("HTTP "+res.status);err.status=res.status;throw err}
-  const {chapters:chs,etapaDefs}=csvToChapters(parseCSV(await res.text()));
-  if(chs.length){sr.chapters=chs;sr.etapaDefs=etapaDefs;}
-  sr.lastSync=new Date().toLocaleTimeString();
-}
-async function syncAll(manual){
-  const linked=S.series.filter(s=>s.sheetUrl);
-  if(!linked.length){if(manual)toast("Ninguna serie vinculada a Google Sheets");return}
-  let ok=0,err=0,lastErr="";
-  for(const sr of linked){try{await fetchSheet(sr);checkDesignations(sr);ok++}
-    catch(e){err++;lastErr=friendlyError(e);logEvent("Sync fallido",`${sr.name}: ${lastErr}`)}}
-  save();render();
-  toast(`Sync: ${ok} ok${err?`, ${err} con error (${lastErr})`:""}`);
-}
-setInterval(()=>syncAll(false),5*60*1000); // auto-sync cada 5 min
-
-/* ============ MODALES ============ */
-const ovl=document.getElementById("ovl"),modal=document.getElementById("modal");
-function openM(html){modal.innerHTML=html;ovl.classList.add("show")}
-function closeM(){ovl.classList.remove("show")}
-ovl.onclick=e=>{if(e.target===ovl)closeM()};
-
-function modalAliases(){
-  openM(`<h3>Mis nombres</h3>
-  <div class="fld"><label>Alias con los que apareces en las hojas</label>
-  <div style="display:flex;gap:8px"><input id="aliasIn" placeholder="manzana, notch, apple..."><button class="btn red" id="aliasAdd">Agregar</button></div>
-  <div class="hint">Puedes pegar varios separados por coma. Se usan para el filtro "Mis tareas" (no distingue mayúsculas).</div>
-  <div class="tagrow" id="aliasTags"></div></div>
-  <div class="mrow"><button class="btn" id="aliasClose">Cerrar</button></div>`);
-  const draw=()=>{document.getElementById("aliasTags").innerHTML=S.aliases.map((a,i)=>
-    `<span class="tag">${esc(a)}<button data-i="${i}" class="delAliasBtn">✕</button></span>`).join("")};
-  document.getElementById("aliasClose").onclick=closeM;
-  document.getElementById("aliasTags").onclick=e=>{
-    const b=e.target.closest(".delAliasBtn");if(!b)return;
-    S.aliases.splice(Number(b.dataset.i),1);save();draw();render();
-  };
-  document.getElementById("aliasAdd").onclick=()=>{
-    const v=document.getElementById("aliasIn").value;
-    v.split(",").map(s=>s.trim()).filter(Boolean).forEach(a=>{if(!esMio(a))S.aliases.push(a)});
-    document.getElementById("aliasIn").value="";save();draw();render()};
-  draw();
-}
-
-function modalGoogle(){
-  openM(`<h3>Cuenta de Google</h3>
-  <div class="fld"><label>Estado</label><div id="gSt" style="font-size:14px;color:var(--mut)"></div></div>
-  <div class="mrow">
-    <button class="btn" id="gOutB" style="display:none">Cerrar sesión</button>
-    <button class="btn" id="gClose">Cerrar</button>
-    <button class="btn red" id="gInB">Iniciar sesión con Google</button>
-  </div>`);
-  const st=()=>{document.getElementById("gSt").innerHTML=isSignedIn()
-    ?`<span style="color:var(--ok)">● Conectado</span> ${esc(gMail)}`:"Sin sesión";
-    document.getElementById("gOutB").style.display=isSignedIn()?"":"none";
-    document.getElementById("gInB").style.display=isSignedIn()?"none":""};
-  document.getElementById("gClose").onclick=closeM;
-  document.getElementById("gInB").onclick=async()=>{
-    const b=document.getElementById("gInB");b.textContent="Abriendo popup de Google...";b.disabled=true;
-    try{
-      initAuth(DEFAULT_CLIENT_ID); // idempotente, defensivo por si el init inicial falló en silencio
-      await requestToken();
-      gMail=await fetchEmail();
-      paintG();st();toast("Sesión iniciada");syncAll(false);
-    }catch(e){toast("Error: "+e.message)}
-    b.textContent="Iniciar sesión con Google";b.disabled=false;};
-  document.getElementById("gOutB").onclick=()=>{
-    gSignOut();gMail="";paintG();st();toast("Sesión cerrada")};
-  st();
-}
-
-function modalDashboard(){
-  const totalSeries=S.series.length;
-  let totalCaps=0,totalDone=0,totalUrg=0;
-  const rows=S.series.map(sr=>{
-    const caps=sr.chapters.length;
-    const done=sr.chapters.filter(c=>capCompleto(sr,c)).length;
-    const urg=sr.chapters.filter(c=>c.prio==="URGENTE"&&!capCompleto(sr,c)).length;
-    totalCaps+=caps;totalDone+=done;totalUrg+=urg;
-    return `<tr><td>${esc(sr.name)}</td><td>${done}/${caps}</td><td>${caps?Math.round(done/caps*100):0}%</td>
-      <td>${urg?`<span style="color:#ff6b69;font-weight:700">${urg}</span>`:"—"}</td></tr>`;
-  }).join("");
-  openM(`<h3>Dashboard</h3>
-  <div class="dashGrid">
-    <div class="dashCard"><div class="n">${totalSeries}</div><div class="l">Series activas</div></div>
-    <div class="dashCard"><div class="n">${totalDone}/${totalCaps}</div><div class="l">Capítulos completos</div></div>
-    <div class="dashCard warn"><div class="n">${totalCaps?Math.round(totalDone/totalCaps*100):0}%</div><div class="l">Progreso general</div></div>
-    <div class="dashCard urg"><div class="n">${totalUrg}</div><div class="l">Urgentes pendientes</div></div>
-  </div>
-  <table class="dashTbl"><thead><tr><th>Serie</th><th>Completos</th><th>Progreso</th><th>Urgentes</th></tr></thead>
-  <tbody>${rows||`<tr><td colspan="4" style="color:var(--mut)">Sin series aún.</td></tr>`}</tbody></table>
-  <div class="mrow">
-    <button class="btn" id="dashLog" style="margin-right:auto;color:var(--mut)">Registro de errores${S.log.length?` (${S.log.length})`:""}</button>
-    <button class="btn" id="dashClose">Cerrar</button>
-  </div>`);
-  document.getElementById("dashClose").onclick=closeM;
-  document.getElementById("dashLog").onclick=modalLog;
-}
-
-function modalLog(){
-  const rows=S.log.slice(0,100).map(l=>{
-    const f=new Date(l.fecha);
-    return `<tr><td>${f.toLocaleDateString()} ${f.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</td>
-      <td>${esc(l.tipo)}</td><td>${esc(l.detalle)}</td></tr>`;
-  }).join("");
-  openM(`<h3>Registro de errores</h3>
-  <div class="fld"><div class="hint">Últimos fallos de sincronización o escritura a Google Sheets, más recientes primero.</div></div>
-  <table class="dashTbl"><thead><tr><th>Fecha</th><th>Tipo</th><th>Detalle</th></tr></thead>
-  <tbody>${rows||`<tr><td colspan="3" style="color:var(--mut)">Sin errores registrados.</td></tr>`}</tbody></table>
-  <div class="mrow">
-    <button class="btn" id="logClear" style="margin-right:auto;color:var(--mut)">Limpiar</button>
-    <button class="btn" id="logExport">Exportar</button>
-    <button class="btn" id="logClose">Cerrar</button>
-  </div>`);
-  document.getElementById("logClose").onclick=closeM;
-  document.getElementById("logClear").onclick=()=>{S.log=[];save();closeM();toast("Registro limpiado")};
-  document.getElementById("logExport").onclick=()=>{
-    const txt=S.log.map(l=>`${l.fecha}\t${l.tipo}\t${l.detalle}`).join("\n");
-    const a=document.createElement("a");
-    a.href=URL.createObjectURL(new Blob([txt],{type:"text/plain"}));
-    a.download="scantracker-log.txt";a.click();
-  };
-}
-
-function fmtDur(ms){
-  if(ms==null)return"—";
-  const h=Math.round(ms/3600000);
-  if(h<1)return"<1h";
-  if(h<24)return h+"h";
-  return Math.round(h/24)+"d";
-}
-function modalHistorial(){
-  const rows=S.historial.slice(0,100).map(h=>{
-    const f=new Date(h.fecha);
-    return `<tr><td>${f.toLocaleDateString()} ${f.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</td>
-      <td>${esc(h.serie)}</td><td>${esc(h.cap)}</td><td>${esc(h.etapa)}</td><td>${fmtDur(h.durMs)}</td></tr>`;
-  }).join("");
-  openM(`<h3>Mi historial</h3>
-  <div class="fld"><div class="hint">Capítulos que completaste vos, más recientes primero. "Duración" es desde que se te asignó hasta que marcaste listo.</div></div>
-  <table class="dashTbl"><thead><tr><th>Fecha</th><th>Serie</th><th>Cap</th><th>Etapa</th><th>Duración</th></tr></thead>
-  <tbody>${rows||`<tr><td colspan="5" style="color:var(--mut)">Todavía no completaste nada.</td></tr>`}</tbody></table>
-  <div class="mrow"><button class="btn" id="histClose">Cerrar</button></div>`);
-  document.getElementById("histClose").onclick=closeM;
-}
-
-// Cruza TODAS las series (no solo la abierta) y junta los capítulos donde
-// tengo alguna etapa asignada e incompleta — antes había que abrir cada
-// pestaña de serie para verlo, uno por uno.
-function modalMisPendientes(){
-  const items=[];
-  S.series.forEach(sr=>{
-    sr.chapters.forEach(c=>{
-      if(esOculto(sr,c))return;
-      etapasDe(sr).forEach(([k,label])=>{
-        if(esMio(c[k].who)&&!c[k].done)items.push({serieId:sr.id,serieName:sr.name,cap:c.num,etapa:label,prio:c.prio});
-      });
-    });
-  });
-  const rank=p=>{const i=PRIOS.indexOf(p);return i<0?PRIOS.length:i};
-  items.sort((a,b)=>rank(a.prio)-rank(b.prio));
-  const rows=items.map(it=>`<tr><td>${esc(it.serieName)}</td><td class="cap">${esc(it.cap)}</td><td>${esc(it.etapa)}</td>
-    <td><span class="prio ${prioClass(it.prio)}">${esc(it.prio||"—")}</span></td>
-    <td><button class="btn" data-jumpserie="${it.serieId}">Ir</button></td></tr>`).join("");
-  openM(`<h3>Mis pendientes</h3>
-  <div class="fld"><div class="hint">Capítulos de TODAS tus series donde tenés una etapa asignada e incompleta.</div></div>
-  <table class="dashTbl"><thead><tr><th>Serie</th><th>Cap</th><th>Etapa</th><th>Prioridad</th><th></th></tr></thead>
-  <tbody>${rows||`<tr><td colspan="5" style="color:var(--mut)">Sin pendientes — al día.</td></tr>`}</tbody></table>
-  <div class="mrow"><button class="btn" id="pendClose">Cerrar</button></div>`);
-  document.getElementById("pendClose").onclick=closeM;
-  modal.querySelectorAll("[data-jumpserie]").forEach(b=>b.onclick=()=>{selSerie(b.dataset.jumpserie);closeM()});
-}
-
-function modalSerie(){
-  openM(`<h3>Nueva serie</h3>
-  <div class="fld"><label>Nombre</label><input id="snName" placeholder="Teto x Egen"></div>
-  <div class="fld"><label>Fuente</label><select id="snSrc">
-    <option value="manual">Manual (vacía)</option>
-    <option value="gsheet">Google Sheets (vinculada, se sincroniza)</option>
-    <option value="paste">Pegar CSV</option>
-    <option value="file">Archivo CSV local</option></select></div>
-  <div class="fld" id="snUrlF" style="display:none"><label>URL de la hoja</label>
-    <div style="display:flex;gap:8px"><button class="btn" id="snDriveBtn" type="button">Elegir de "Compartidos conmigo"</button></div>
-    <select id="snDriveSel" style="display:none;margin-top:8px"></select>
-    <div style="display:flex;gap:8px;margin-top:8px"><input id="snUrl" placeholder="...o pegá la URL directamente"><button class="btn" id="snTabsBtn" type="button">Elegir pestaña</button></div>
-    <select id="snTabsSel" style="display:none;margin-top:8px"></select>
-    <div class="hint">Con sesión de Google iniciada funciona con hojas <b>privadas</b> (las que tu cuenta puede ver) y los cambios se escriben de vuelta. Sin sesión, la hoja debe ser pública y agregar #gid= a mano si no es la primera pestaña. Se re-sincroniza cada 5 min y con ⟳.</div></div>
-  <div class="fld" id="snPasteF" style="display:none"><label>CSV (con encabezado Capítulos,Prioridad,TRADUCCIÓN,LISTO,...)</label><textarea id="snPaste"></textarea></div>
-  <div class="fld" id="snNF"><label>Capítulos iniciales</label><input id="snN" type="number" value="10" min="0"></div>
-  <div class="mrow"><button class="btn" id="snCancel">Cancelar</button><button class="btn red" id="snOk">Crear</button></div>`);
-  const src=document.getElementById("snSrc");
-  src.onchange=()=>{
-    document.getElementById("snUrlF").style.display=src.value==="gsheet"?"":"none";
-    document.getElementById("snPasteF").style.display=src.value==="paste"?"":"none";
-    document.getElementById("snNF").style.display=src.value==="manual"?"":"none";
-    if(src.value==="file")document.getElementById("csvFile").click();
-  };
-  document.getElementById("snCancel").onclick=closeM;
-  document.getElementById("snDriveBtn").onclick=async()=>{
-    if(!isSignedIn())return toast("Iniciá sesión con Google primero (botón 'Conectar Google')");
-    const btn=document.getElementById("snDriveBtn");
-    btn.textContent="Cargando...";btn.disabled=true;
-    try{
-      const files=await listSharedSheets();
-      const sel=document.getElementById("snDriveSel");
-      sel.innerHTML=`<option value="">— Elegí una hoja —</option>`+
-        files.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join("");
-      sel.style.display="";
-      sel.onchange=()=>{
-        if(!sel.value)return;
-        document.getElementById("snUrl").value=`https://docs.google.com/spreadsheets/d/${sel.value}/edit`;
-        document.getElementById("snTabsSel").style.display="none";
-      };
-      if(!files.length)toast("No se encontraron Sheets en 'Compartidos conmigo'");
-    }catch(e){toast("No se pudo listar Drive: "+friendlyError(e))}
-    btn.textContent="Elegir de \"Compartidos conmigo\"";btn.disabled=false;
-  };
-  document.getElementById("snTabsBtn").onclick=async()=>{
-    const url=document.getElementById("snUrl").value.trim();
-    if(!url)return toast("Pegá la URL de la hoja primero");
-    if(!isSignedIn())return toast("Iniciá sesión con Google para listar las pestañas de una hoja privada");
-    const btn=document.getElementById("snTabsBtn");
-    btn.textContent="Cargando...";btn.disabled=true;
-    try{
-      const tabs=await listSheetTabs(url);
-      const sel=document.getElementById("snTabsSel");
-      sel.innerHTML=tabs.map(t=>`<option value="${t.gid}">${esc(t.title)}</option>`).join("");
-      sel.style.display="";
-      sel.onchange=()=>{
-        const base=url.split("#")[0];
-        document.getElementById("snUrl").value=`${base}#gid=${sel.value}`;
-      };
-      if(tabs.length)sel.onchange();
-    }catch(e){toast("No se pudieron listar las pestañas: "+friendlyError(e))}
-    btn.textContent="Elegir pestaña";btn.disabled=false;
-  };
-  document.getElementById("csvFile").onchange=e=>{
-    const f=e.target.files[0];if(!f)return;
-    const rd=new FileReader();
-    rd.onload=()=>{pendingFileCSV=rd.result;toast("Archivo cargado: "+f.name)};
-    rd.readAsText(f);e.target.value="";
-  };
-  document.getElementById("snOk").onclick=async()=>{
-    const name=document.getElementById("snName").value.trim();
-    if(!name)return toast("Falta el nombre");
-    const v=src.value;
-    if(v==="file"&&!pendingFileCSV)return toast("Elegí un archivo CSV primero");
-    const sr={id:uid(),name,sheetUrl:null,chapters:[],ocultos:{}};
-    if(v==="manual"){
-      const n=+document.getElementById("snN").value||0;
-      for(let i=1;i<=n;i++)sr.chapters.push(nuevoCap(String(i),sr));
-    }else if(v==="gsheet"){
-      sr.sheetUrl=document.getElementById("snUrl").value.trim();
-      try{await fetchSheet(sr);checkDesignations(sr)}catch(e){toast("No se pudo leer la hoja: "+friendlyError(e))}
-    }else if(v==="paste"){
-      const r=csvToChapters(parseCSV(document.getElementById("snPaste").value));
-      sr.chapters=r.chapters;sr.etapaDefs=r.etapaDefs;
-    }else if(v==="file"&&pendingFileCSV){
-      const r=csvToChapters(parseCSV(pendingFileCSV));
-      sr.chapters=r.chapters;sr.etapaDefs=r.etapaDefs;pendingFileCSV=null;
-    }
-    S.series.push(sr);S.sel=sr.id;save();render();closeM();
-  };
-}
-let pendingFileCSV=null;
-function nuevoCap(num,sr){
-  const ch={id:uid(),num,prio:"URGENTE"};
-  etapasDe(sr).forEach(([k])=>{ch[k]={who:"",done:false}});
-  return ch;
-}
-
-/* ============ RENDER ============ */
-const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-// Capítulos "ocultos" (ej. sin raw todavía, plantilla a futuro): se marcan
-// por número de capítulo en sr.ocultos, NO en el capítulo mismo — el objeto
-// capítulo se recrea con un id nuevo en cada sync, el número de capítulo es
-// lo único estable entre syncs.
-const esOculto=(sr,c)=>!!(sr.ocultos&&sr.ocultos[c.num]);
-function toggleOculto(s,num){
-  const sr=S.series.find(x=>x.id===s);sr.ocultos=sr.ocultos||{};
-  sr.ocultos[num]=!sr.ocultos[num];save();render();
-}
-function progreso(sr){
-  let tot=0,done=0;
-  sr.chapters.forEach(c=>{if(esOculto(sr,c))return;etapasDe(sr).forEach(([k])=>{tot++;if(c[k].done)done++})});
-  return tot?Math.round(done/tot*100):0;
-}
-function misPend(sr){
-  let n=0;sr.chapters.forEach(c=>{if(esOculto(sr,c))return;etapasDe(sr).forEach(([k])=>{if(esMio(c[k].who)&&!c[k].done)n++})});return n;
-}
-function capCompleto(sr,c){return etapasDe(sr).every(([k])=>c[k].done)}
-// Urgentes que todavía me competen: si ya terminé TODAS mis etapas
-// asignadas en un capítulo, dejar de contarlo como urgente para mí aunque
-// el capítulo siga incompleto por otras personas (eso ya lo cubre esperando()).
-function urgentesParaMi(sr){
-  return sr.chapters.filter(c=>{
-    if(esOculto(sr,c)||c.prio!=="URGENTE"||capCompleto(sr,c))return false;
-    const misEtapas=etapasDe(sr).filter(([k])=>esMio(c[k].who));
-    if(misEtapas.length&&misEtapas.every(([k])=>c[k].done))return false;
-    return true;
-  }).length;
-}
-// Capítulos donde ya terminé mi etapa pero el capítulo sigue esperando otra —
-// agrupados por cuál es la próxima etapa incompleta (el "cuello de botella").
-// Las claves del resultado son [key,label] real de esa serie, no fijas,
-// porque distintas hojas pueden nombrar sus etapas distinto.
-function esperando(sr){
-  const counts=new Map();
-  sr.chapters.forEach(c=>{
-    if(esOculto(sr,c)||capCompleto(sr,c))return;
-    if(!etapasDe(sr).some(([k])=>esMio(c[k].who)&&c[k].done))return;
-    const next=etapasDe(sr).find(([k])=>!c[k].done);
-    if(next)counts.set(next[1],(counts.get(next[1])||0)+1);
-  });
-  return counts;
-}
-
-function render(){
-  // sidebar
-  const sl=document.getElementById("serieList");
-  sl.innerHTML=S.series.map(sr=>{
-    const p=progreso(sr),mp=misPend(sr);
-    const urg=urgentesParaMi(sr);
-    const esp=esperando(sr);
-    const espBadges=[...esp.entries()].map(([label,n])=>
-      `<span class="e" title="${n} capítulo(s) donde terminaste tu parte, esperando ${esc(label.toLowerCase())}">E.${esc(label)} ${n}</span>`).join("");
-    return `<div class="serie ${S.sel===sr.id?"sel":""}" data-sel="${sr.id}">
-      <div class="nm"><span>${esc(sr.name)}</span><span>${p}%</span></div>
-      <div class="pbar"><i style="width:${p}%"></i></div>
-      <div class="mt">${urg?`<span class="u">⚠ ${urg} urgentes</span>`:""}${mp?`<span class="m">${mp} mías</span>`:""}${espBadges}${sr.sheetUrl?`<span title="Vinculada a Google Sheets">☁ ${sr.lastSync||""}</span>`:""}</div>
-    </div>`}).join("")||`<div style="padding:14px;color:var(--mut);font-size:12.5px">Sin series. Agrega una con + Serie.</div>`;
-
-  // filtros UI
-  const sr=S.series.find(x=>x.id===S.sel);
-  document.getElementById("fPrio").value=S.filters.prio;
-  document.getElementById("fEstado").value=S.filters.estado;
-  // Las opciones de etapa dependen de la serie seleccionada — distintas hojas
-  // pueden tener distinta cantidad/nombre de etapas.
-  const fEtapaEl=document.getElementById("fEtapa");
-  fEtapaEl.innerHTML=`<option value="">Toda etapa</option>`+
-    etapasDe(sr).map(([k,label])=>`<option value="${k}">${esc(label)}</option>`).join("");
-  fEtapaEl.value=S.filters.etapa;
-  document.getElementById("fOrden").value=S.filters.orden;
-
-  // contenido
-  const ct=document.getElementById("content");
-  if(!sr){ct.innerHTML=`<div id="empty"><div class="big">Scan<span style="color:var(--red)">Tracker</span></div><div>Selecciona o crea una serie para empezar.</div></div>`;return}
-
-  const etapas=S.filters.etapa?etapasDe(sr).filter(([k])=>k===S.filters.etapa):etapasDe(sr);
-  let chs=sr.chapters.filter(c=>{
-    if(S.filters.prio&&c.prio!==S.filters.prio)return false;
-    if(S.filters.estado==="pend"&&capCompleto(sr,c))return false;
-    if(S.filters.estado==="done"&&!capCompleto(sr,c))return false;
-    const b=norm(S.filters.busca);
-    if(b&&!etapas.some(([k])=>norm(c[k].who).includes(b)))return false;
-    return true;
-  });
-  if(S.filters.orden==="urgencia"){
-    const rank=p=>PRIOS.indexOf(p);
-    chs=[...chs].sort((a,b)=>rank(a.prio)-rank(b.prio));
-  }
-
-  const head=`<div id="serieHead">
-    <h2>${esc(sr.name)}</h2>
-    <span class="stats">${sr.chapters.length} caps · ${progreso(sr)}% · ${sr.chapters.filter(c=>capCompleto(sr,c)).length} completos</span>
-    <div class="sp"></div>
-    <button class="btn" data-addcap="${sr.id}">+ Capítulo</button>
-    <button class="btn" data-delserie="${sr.id}" style="color:var(--mut)">Eliminar serie</button>
-  </div>`;
-
-  const rows=chs.map(c=>{
-    const mine=etapas.some(([k])=>esMio(c[k].who)&&!c[k].done);
-    const cells=etapas.map(([k])=>{
-      const st=c[k],me=esMio(st.who);
-      return `<td><div class="stage">
-        <button class="ck ${st.done?"done":me?"pend-me":""}" title="${st.done?"Listo":"Pendiente"}" data-tg="${sr.id}|${c.id}|${k}">✓</button>
-        <input type="text" class="${me?"me":""}" value="${esc(st.who)}" placeholder="—" data-who="${sr.id}|${c.id}|${k}">
-      </div></td>`}).join("");
-    const oculto=esOculto(sr,c);
-    const rowClasses=[];
-    if(mine)rowClasses.push("mine");
-    if(c.prio==="URGENTE"&&!capCompleto(sr,c))rowClasses.push("urgent");
-    if(oculto)rowClasses.push("hidden-cap");
-    return `<tr class="${rowClasses.join(" ")}">
-      <td class="cap">${esc(c.num)}</td>
-      <td><span class="prio ${prioClass(c.prio)}" title="Click para cambiar" data-cycleprio="${sr.id}|${c.id}">${esc(c.prio||"—")}</span></td>
-      ${cells}
-      <td class="del">
-        <button title="${oculto?"Mostrar capítulo (contarlo de nuevo como pendiente)":"Ocultar capítulo (sin raw todavía, no contar como pendiente)"}" data-toggleocult="${sr.id}|${c.num}">${oculto?"⊘":"⊙"}</button>
-        <button title="Eliminar capítulo" data-delcap="${sr.id}|${c.id}">✕</button>
-      </td>
-    </tr>`}).join("");
-
-  ct.innerHTML=head+`<div id="tblWrap"><table><thead><tr>
-    <th>Cap</th><th>Prioridad</th>${etapas.map(e=>`<th>${e[1]}</th>`).join("")}<th></th>
-  </tr></thead><tbody>${rows||`<tr><td colspan="${etapas.length+3}" style="color:var(--mut);padding:20px">Nada que mostrar con estos filtros.</td></tr>`}</tbody></table></div>`;
-}
-
-/* ============ ACCIONES (delegadas — sin globals inline) ============ */
-function selSerie(id){S.sel=id;save();render()}
-function tg(s,c,k){const sr=S.series.find(x=>x.id===s),ch=sr.chapters.find(x=>x.id===c);
-  ch[k].done=!ch[k].done;
-  const startKey=`${sr.id}|${ch.num}|${k}`;
-  if(ch[k].done&&esMio(ch[k].who)){
-    const t0=S.startedAt[startKey];
-    S.historial.unshift({fecha:new Date().toISOString(),serie:sr.name,cap:ch.num,
-      etapa:(etapasDe(sr).find(([kk])=>kk===k)||[])[1]||k,
-      durMs:t0?Date.now()-t0:null});
-    delete S.startedAt[startKey];
-  }else if(!ch[k].done){delete S.startedAt[startKey]}
-  save();render();pushCell(sr,ch,COLW[k][1],ch[k].done?"TRUE":"FALSE")}
-function setWho(s,c,k,v){const sr=S.series.find(x=>x.id===s),ch=sr.chapters.find(x=>x.id===c);
-  const startKey=`${sr.id}|${ch.num}|${k}`;
-  const wasMine=esMio(ch[k].who);
-  ch[k].who=v.trim();
-  if(!wasMine&&esMio(ch[k].who)&&!ch[k].done)S.startedAt[startKey]=Date.now();
-  save();render();pushCell(sr,ch,COLW[k][0],ch[k].who)}
-function cyclePrio(s,c){const sr=S.series.find(x=>x.id===s),ch=sr.chapters.find(x=>x.id===c);
-  ch.prio=PRIOS[(PRIOS.indexOf(ch.prio)+1)%PRIOS.length];save();render();pushCell(sr,ch,"B",ch.prio)}
-function addCap(s){const sr=S.series.find(x=>x.id===s);
-  const last=sr.chapters.length?sr.chapters[sr.chapters.length-1].num:"0";
-  const n=isNaN(+last)?String(sr.chapters.length+1):String(+last+1);
-  const ch=nuevoCap(n,sr);sr.chapters.push(ch);save();render();pushNewRow(sr,ch)}
-function delCap(s,c){const sr=S.series.find(x=>x.id===s);
-  if(!confirm("¿Eliminar capítulo?"+(sr.api?" (también se borrará la fila en la hoja de Google)":"")))return;
-  const ch=sr.chapters.find(x=>x.id===c);
-  sr.chapters=sr.chapters.filter(x=>x.id!==c);save();render();pushDelRow(sr,ch)}
-function delSerie(s){const sr=S.series.find(x=>x.id===s);
-  if(!confirm(`¿Eliminar "${sr.name}" y todos sus capítulos?`))return;
-  S.series=S.series.filter(x=>x.id!==s);if(S.sel===s)S.sel=S.series[0]?.id||null;save();render()}
-
-document.getElementById("serieList").addEventListener("click",e=>{
-  const el=e.target.closest("[data-sel]");if(el)selSerie(el.dataset.sel);
-});
-document.getElementById("content").addEventListener("click",e=>{
-  let el=e.target.closest("[data-tg]");if(el){const[s,c,k]=el.dataset.tg.split("|");return tg(s,c,k)}
-  el=e.target.closest("[data-cycleprio]");if(el){const[s,c]=el.dataset.cycleprio.split("|");return cyclePrio(s,c)}
-  el=e.target.closest("[data-delcap]");if(el){const[s,c]=el.dataset.delcap.split("|");return delCap(s,c)}
-  el=e.target.closest("[data-toggleocult]");if(el){const[s,num]=el.dataset.toggleocult.split("|");return toggleOculto(s,num)}
-  el=e.target.closest("[data-addcap]");if(el)return addCap(el.dataset.addcap);
-  el=e.target.closest("[data-delserie]");if(el)return delSerie(el.dataset.delserie);
-});
-document.getElementById("content").addEventListener("change",e=>{
-  const el=e.target.closest("[data-who]");if(!el)return;
-  const[s,c,k]=el.dataset.who.split("|");setWho(s,c,k,el.value);
-});
-
-document.getElementById("fMine").onclick=modalMisPendientes;
-document.getElementById("fPrio").onchange=e=>{S.filters.prio=e.target.value;save();render()};
-document.getElementById("fEstado").onchange=e=>{S.filters.estado=e.target.value;save();render()};
-document.getElementById("fEtapa").onchange=e=>{S.filters.etapa=e.target.value;save();render()};
-document.getElementById("fOrden").onchange=e=>{S.filters.orden=e.target.value;save();render()};
-document.getElementById("fBusca").oninput=e=>{S.filters.busca=e.target.value;render()};
-document.getElementById("bCfg").onclick=modalAliases;
-document.getElementById("bDash").onclick=modalDashboard;
-document.getElementById("bHist").onclick=modalHistorial;
-document.getElementById("bGoogle").onclick=modalGoogle;
-document.getElementById("bAddSerie").onclick=modalSerie;
-document.getElementById("bSync").onclick=()=>syncAll(true);
-document.getElementById("bUndo").onclick=undo;
-document.getElementById("bRedo").onclick=redo;
-paintUndoRedo();
-document.getElementById("bExport").onclick=()=>{
-  const sr=S.series.find(x=>x.id===S.sel);if(!sr)return toast("Selecciona una serie");
-  const etapaDefs=etapasDe(sr);
-  let csv="Capítulos,Prioridad,"+etapaDefs.flatMap(([,label])=>[label,"LISTO"]).join(",")+"\n";
-  sr.chapters.forEach(c=>{csv+=[c.num,c.prio,...etapaDefs.flatMap(([k])=>[c[k].who,c[k].done?"TRUE":"FALSE"])].map(v=>/[",\n]/.test(v)?`"${String(v).replace(/"/g,'""')}"`:v).join(",")+"\n"});
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
-  a.download=sr.name.replace(/[^\w-]+/g,"_")+".csv";a.click();
-};
-
-render();
-paintG();
-if(!S.aliases.length&&!S.series.length)setTimeout(modalAliases,400);
-</script>
+<script type="module" src="src/app.js"></script>
 </body>
 </html>
