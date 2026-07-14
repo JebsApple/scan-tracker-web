@@ -156,8 +156,8 @@ td.del button:hover{color:var(--red)}
   <button class="btn" id="bUndo" title="Deshacer" disabled>↩</button>
   <button class="btn" id="bRedo" title="Rehacer" disabled>↪</button>
   <button class="btn" id="bSync" title="Recargar hojas vinculadas de Google">⟳ Sincronizar</button>
-  <button class="btn" id="bDash">📊 Dashboard</button>
-  <button class="btn" id="bHist">🕘 Mi historial</button>
+  <button class="btn" id="bDash">▦ Dashboard</button>
+  <button class="btn" id="bHist">☰ Mi historial</button>
   <button class="btn" id="bCfg">⚙ Mis nombres</button>
 </div>
 
@@ -661,7 +661,7 @@ function render(){
       <td><span class="prio ${prioClass(c.prio)}" title="Click para cambiar" data-cycleprio="${sr.id}|${c.id}">${esc(c.prio||"—")}</span></td>
       ${cells}
       <td class="del">
-        <button title="${oculto?"Mostrar capítulo (contarlo de nuevo como pendiente)":"Ocultar capítulo (sin raw todavía, no contar como pendiente)"}" data-toggleocult="${sr.id}|${c.num}">${oculto?"🚫":"👁"}</button>
+        <button title="${oculto?"Mostrar capítulo (contarlo de nuevo como pendiente)":"Ocultar capítulo (sin raw todavía, no contar como pendiente)"}" data-toggleocult="${sr.id}|${c.num}">${oculto?"⊘":"⊙"}</button>
         <button title="Eliminar capítulo" data-delcap="${sr.id}|${c.id}">✕</button>
       </td>
     </tr>`}).join("");
