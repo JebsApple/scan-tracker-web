@@ -178,7 +178,7 @@ td.del button:hover{color:var(--red)}
 <input type="file" id="csvFile" accept=".csv,.txt" style="display:none">
 
 <script type="module">
-import { initAuth, requestToken, getAccessToken, isSignedIn, signOut as gSignOut, fetchEmail } from "./src/auth.js";
+import { initAuth, requestToken, getAccessToken, isSignedIn, signOut as gSignOut, fetchEmail, trySilentLogin } from "./src/auth.js";
 import { readSheet, writeCell as apiWriteCell, appendRow as apiAppendRow, deleteRow as apiDeleteRow } from "./src/sheets-api.js";
 
 /* ============ ESTADO ============ */
@@ -278,7 +278,15 @@ function checkDesignations(sr){
   S.whoSnapshot[sr.id]=cur;
 }
 
-if(S.clientId){try{initAuth(S.clientId)}catch(e){}}
+if(S.clientId){
+  try{initAuth(S.clientId)}catch(e){}
+  // Reintento silencioso: si ya diste consentimiento antes, no hace falta
+  // tocar "Iniciar sesión" de nuevo en cada recarga. Falla en silencio si el
+  // navegador bloquea el intento o ya no hay sesión activa en Google.
+  trySilentLogin().then(async()=>{
+    gMail=await fetchEmail();paintG();syncAll(false);
+  }).catch(()=>{});
+}
 
 /* ============ CSV (fallback lectura pública, sin login) ============ */
 function parseCSV(txt){

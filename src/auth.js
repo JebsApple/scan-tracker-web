@@ -10,6 +10,18 @@ const SCOPES =
 let tokenClient = null;
 let currentToken = null; // { access_token: string, expires_at: number }
 
+// GIS (implicit token flow) no da refresh_token por diseño de seguridad de
+// Google — el access_token vive en memoria y se pierde al recargar. Lo único
+// persistible es SI el usuario dio consentimiento antes, para poder
+// reintentar un login silencioso (sin popup) al volver a abrir la app.
+const CONSENT_KEY = "scantracker_google_consent";
+function markConsented() {
+  try { localStorage.setItem(CONSENT_KEY, "1"); } catch {}
+}
+export function hasConsented() {
+  try { return localStorage.getItem(CONSENT_KEY) === "1"; } catch { return false; }
+}
+
 export function initAuth(clientId) {
   if (!clientId) throw new Error("falta Client ID");
   tokenClient = google.accounts.oauth2.initTokenClient({
@@ -19,7 +31,8 @@ export function initAuth(clientId) {
   });
 }
 
-export function requestToken() {
+export function requestToken(opts = {}) {
+  const silent = !!opts.silent;
   return new Promise((resolve, reject) => {
     if (!tokenClient) {
       reject(new Error("auth no inicializado — configurá el Client ID primero"));
@@ -34,10 +47,20 @@ export function requestToken() {
         access_token: resp.access_token,
         expires_at: Date.now() + (Number(resp.expires_in) || 3600) * 1000,
       };
+      markConsented();
       resolve(currentToken.access_token);
     };
-    tokenClient.requestAccessToken({ prompt: currentToken ? "" : "consent" });
+    tokenClient.requestAccessToken({ prompt: silent ? "" : (currentToken ? "" : "consent") });
   });
+}
+
+/** Reintenta sesión sin popup si ya hubo consentimiento antes. Falla en
+ * silencio (rechaza la promise) si el navegador bloquea el intento o el
+ * usuario ya no tiene sesión activa en Google — el caller debe manejarlo
+ * como "seguir sin sesión", no como error visible. */
+export function trySilentLogin() {
+  if (!hasConsented()) return Promise.reject(new Error("sin consentimiento previo"));
+  return requestToken({ silent: true });
 }
 
 export async function getAccessToken() {
