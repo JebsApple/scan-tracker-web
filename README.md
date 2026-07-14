@@ -13,15 +13,17 @@ python3 -m http.server 8080
 
 No hay build step — es HTML + ES modules servidos tal cual.
 
-## Configurar Google (una vez)
+## Configurar Google (una vez, solo quien mantiene el proyecto)
 
-1. En [Google Cloud Console](https://console.cloud.google.com) → APIs y servicios → Biblioteca → habilitar **Google Sheets API**.
-2. Credenciales → Crear credenciales → ID de cliente de OAuth → tipo **Aplicación web**.
-3. En "Orígenes de JavaScript autorizados" agregá `http://localhost:8080` (o tu dominio de deploy, ej. GitHub Pages).
-4. No hace falta client_secret — los Client ID de tipo web son públicos por diseño (Google los autoriza por origen, no por secreto).
-5. En la app: botón **Conectar Google** → pegar el Client ID → **Iniciar sesión con Google**.
+El Client ID ya viene fijo en el código (`DEFAULT_CLIENT_ID` en `index.html`) — un usuario final solo hace click en **Conectar Google** e inicia sesión, sin pegar nada. Esto es para quien administre ese Client ID en Google Cloud Console:
 
-El Client ID queda guardado en `localStorage` del browser (por dispositivo, no se comparte con nadie más).
+1. [Google Cloud Console](https://console.cloud.google.com) → APIs y servicios → Biblioteca → habilitar **Google Sheets API** y **Google Drive API**.
+2. Pantalla de consentimiento OAuth → Scopes → agregar `spreadsheets`, `userinfo.email` y `drive.metadata.readonly` (este último es para listar "Compartidos conmigo" al crear una serie — nunca lee contenido de archivos, solo nombre/id).
+3. Si la app no está verificada por Google, agregar como "test users" a cada persona del equipo en esa misma pantalla, o van a ver un aviso de "app no verificada" al loguearse.
+4. Credenciales → Crear credenciales → ID de cliente de OAuth → tipo **Aplicación web**.
+5. En "Orígenes de JavaScript autorizados" agregá `http://localhost:8080` (o tu dominio de deploy, ej. GitHub Pages).
+6. No hace falta client_secret — los Client ID de tipo web son públicos por diseño (Google los autoriza por origen, no por secreto).
+7. Pegar ese Client ID como `DEFAULT_CLIENT_ID` en `index.html` (buscar la constante cerca del inicio del `<script type="module">`).
 
 ## Estructura
 

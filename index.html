@@ -175,6 +175,7 @@ td.del button:hover{color:var(--red)}
 <script type="module">
 import { initAuth, requestToken, getAccessToken, isSignedIn, signOut as gSignOut, fetchEmail, trySilentLogin } from "./src/auth.js";
 import { readSheet, writeCell as apiWriteCell, appendRow as apiAppendRow, deleteRow as apiDeleteRow, listSheetTabs } from "./src/sheets-api.js";
+import { listSharedSheets } from "./src/drive-api.js";
 
 /* ============ ESTADO ============ */
 // ETAPAS es el contrato POR DEFECTO (series manuales/CSV sin encabezado
@@ -556,7 +557,9 @@ function modalSerie(){
     <option value="paste">Pegar CSV</option>
     <option value="file">Archivo CSV local</option></select></div>
   <div class="fld" id="snUrlF" style="display:none"><label>URL de la hoja</label>
-    <div style="display:flex;gap:8px"><input id="snUrl" placeholder="https://docs.google.com/spreadsheets/d/..."><button class="btn" id="snTabsBtn" type="button">Elegir pestaña</button></div>
+    <div style="display:flex;gap:8px"><button class="btn" id="snDriveBtn" type="button">Elegir de "Compartidos conmigo"</button></div>
+    <select id="snDriveSel" style="display:none;margin-top:8px"></select>
+    <div style="display:flex;gap:8px;margin-top:8px"><input id="snUrl" placeholder="...o pegá la URL directamente"><button class="btn" id="snTabsBtn" type="button">Elegir pestaña</button></div>
     <select id="snTabsSel" style="display:none;margin-top:8px"></select>
     <div class="hint">Con sesión de Google iniciada funciona con hojas <b>privadas</b> (las que tu cuenta puede ver) y los cambios se escriben de vuelta. Sin sesión, la hoja debe ser pública y agregar #gid= a mano si no es la primera pestaña. Se re-sincroniza cada 5 min y con ⟳.</div></div>
   <div class="fld" id="snPasteF" style="display:none"><label>CSV (con encabezado Capítulos,Prioridad,TRADUCCIÓN,LISTO,...)</label><textarea id="snPaste"></textarea></div>
@@ -570,6 +573,25 @@ function modalSerie(){
     if(src.value==="file")document.getElementById("csvFile").click();
   };
   document.getElementById("snCancel").onclick=closeM;
+  document.getElementById("snDriveBtn").onclick=async()=>{
+    if(!isSignedIn())return toast("Iniciá sesión con Google primero (botón 'Conectar Google')");
+    const btn=document.getElementById("snDriveBtn");
+    btn.textContent="Cargando...";btn.disabled=true;
+    try{
+      const files=await listSharedSheets();
+      const sel=document.getElementById("snDriveSel");
+      sel.innerHTML=`<option value="">— Elegí una hoja —</option>`+
+        files.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join("");
+      sel.style.display="";
+      sel.onchange=()=>{
+        if(!sel.value)return;
+        document.getElementById("snUrl").value=`https://docs.google.com/spreadsheets/d/${sel.value}/edit`;
+        document.getElementById("snTabsSel").style.display="none";
+      };
+      if(!files.length)toast("No se encontraron Sheets en 'Compartidos conmigo'");
+    }catch(e){toast("No se pudo listar Drive: "+friendlyError(e))}
+    btn.textContent="Elegir de \"Compartidos conmigo\"";btn.disabled=false;
+  };
   document.getElementById("snTabsBtn").onclick=async()=>{
     const url=document.getElementById("snUrl").value.trim();
     if(!url)return toast("Pegá la URL de la hoja primero");
