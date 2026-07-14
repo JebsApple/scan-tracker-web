@@ -204,13 +204,24 @@ function detectEtapaDefs(headerRow){
 // Client ID fijo en el código — no hay opción de configurarlo desde la UI,
 // es un solo login normal de Google, sin nada que pegar/perder.
 const DEFAULT_CLIENT_ID="50665049250-07f71ktrd7a8gd8fhg63l3jhv4hdnu6k.apps.googleusercontent.com";
-let S=load()||{aliases:[],series:[],sel:null,filters:{prio:"",estado:"",busca:"",etapa:"",orden:""},whoSnapshot:{},historial:[],startedAt:{}};
+let S=load()||{aliases:[],series:[],sel:null,filters:{prio:"",estado:"",busca:"",etapa:"",orden:""},whoSnapshot:{},historial:[],startedAt:{},log:[]};
 S.filters.etapa=S.filters.etapa||"";
 S.filters.orden=S.filters.orden||"";
 S.whoSnapshot=S.whoSnapshot||{};
 S.historial=S.historial||[];
 S.startedAt=S.startedAt||{};
+S.log=S.log||[];
 delete S.clientId; // limpiar restos de versiones viejas que sí lo guardaban
+delete S.debug; // reemplazado por el log persistente (logEvent/modalLog)
+
+/** Registra un fallo de sync/API en S.log — reemplaza el scantrackerDebug()
+ * temporal, ahora es un log real inspeccionable/exportable desde la UI en
+ * vez de tener que abrir devtools. */
+function logEvent(tipo,detalle){
+  S.log.unshift({fecha:new Date().toISOString(),tipo,detalle});
+  if(S.log.length>200)S.log.length=200;
+  save();
+}
 
 /* ============ HISTORIAL DESHACER/REHACER ============ */
 // Snapshot completo de S en cada save() — solo en memoria (no persiste al
@@ -356,29 +367,7 @@ async function apiFetchSheet(sr){
   const data=await readSheet(sr.sheetUrl);
   sr._ssId=data.id;sr._gid=data.gid;sr._title=data.title;
   const rows=data.rows.map(r=>r.map(c=>String(c??"")));
-  if(S.debug){
-    console.group(`[scantracker debug] ${sr.name} — filas crudas de la API`);
-    console.log("Encabezado esperado en fila 0/1/2:",rows.slice(0,3));
-    console.table(rows.slice(0,15));
-    console.groupEnd();
-  }
   const {chapters:chs,etapaDefs}=csvToChapters(rows,true);
-  if(S.debug){
-    console.group(`[scantracker debug] ${sr.name} — etapas detectadas`);
-    console.log(etapaDefs);
-    console.groupEnd();
-    console.group(`[scantracker debug] ${sr.name} — capítulos parseados (who/done por etapa)`);
-    console.table(chs.map(c=>{
-      const row={num:c.num};
-      etapaDefs.forEach(([k,label])=>{row[`${label}_who`]=c[k].who;row[`${label}_done`]=c[k].done});
-      return row;
-    }));
-    console.log("Tus aliases actuales:",S.aliases);
-    const [firstKey,firstLabel]=etapaDefs[0]||[];
-    console.log(`Ejemplo de comparación (primer capítulo, etapa ${firstLabel}):`,
-      chs[0]&&firstKey?{who:chs[0][firstKey].who,esMio:esMio(chs[0][firstKey].who)}:"sin capítulos");
-    console.groupEnd();
-  }
   if(chs.length){sr.chapters=chs;sr.etapaDefs=etapaDefs;}
   sr.api=true;sr.lastSync=new Date().toLocaleTimeString();
 }
@@ -386,21 +375,21 @@ const COLW={trad:["C","D"],limp:["E","F"],typ:["G","H"],corr:["I","J"],sube:["K"
 async function pushCell(sr,ch,col,val){
   if(!sr?.api||!ch.srcRow)return;
   try{await apiWriteCell(sr.sheetUrl,sr._title,col+ch.srcRow,String(val))}
-  catch(e){toast("No se pudo escribir: "+friendlyError(e))}
+  catch(e){const msg=friendlyError(e);logEvent("Escritura fallida",`${sr.name} cap ${ch.num}: ${msg}`);toast("No se pudo escribir: "+msg)}
 }
 async function pushNewRow(sr,ch){
   if(!sr?.api)return;
   try{const row=await apiAppendRow(sr.sheetUrl,sr._title,
     [ch.num,ch.prio,...etapasDe(sr).flatMap(()=>["",false])]);
     if(row>0){ch.srcRow=row;save()}
-  }catch(e){toast("No se pudo agregar fila: "+friendlyError(e))}
+  }catch(e){const msg=friendlyError(e);logEvent("Fila no agregada",`${sr.name} cap ${ch.num}: ${msg}`);toast("No se pudo agregar fila: "+msg)}
 }
 async function pushDelRow(sr,ch){
   if(!sr?.api||!ch.srcRow)return;
   try{await apiDeleteRow(sr.sheetUrl,sr._gid,ch.srcRow);
     sr.chapters.forEach(c=>{if(c.srcRow>ch.srcRow)c.srcRow--});
     save();
-  }catch(e){toast("No se pudo borrar fila: "+friendlyError(e))}
+  }catch(e){const msg=friendlyError(e);logEvent("Fila no borrada",`${sr.name} cap ${ch.num}: ${msg}`);toast("No se pudo borrar fila: "+msg)}
 }
 
 async function fetchSheet(sr){
@@ -416,7 +405,8 @@ async function syncAll(manual){
   const linked=S.series.filter(s=>s.sheetUrl);
   if(!linked.length){if(manual)toast("Ninguna serie vinculada a Google Sheets");return}
   let ok=0,err=0,lastErr="";
-  for(const sr of linked){try{await fetchSheet(sr);checkDesignations(sr);ok++}catch(e){err++;lastErr=friendlyError(e)}}
+  for(const sr of linked){try{await fetchSheet(sr);checkDesignations(sr);ok++}
+    catch(e){err++;lastErr=friendlyError(e);logEvent("Sync fallido",`${sr.name}: ${lastErr}`)}}
   save();render();
   toast(`Sync: ${ok} ok${err?`, ${err} con error (${lastErr})`:""}`);
 }
@@ -496,8 +486,37 @@ function modalDashboard(){
   </div>
   <table class="dashTbl"><thead><tr><th>Serie</th><th>Completos</th><th>Progreso</th><th>Urgentes</th></tr></thead>
   <tbody>${rows||`<tr><td colspan="4" style="color:var(--mut)">Sin series aún.</td></tr>`}</tbody></table>
-  <div class="mrow"><button class="btn" id="dashClose">Cerrar</button></div>`);
+  <div class="mrow">
+    <button class="btn" id="dashLog" style="margin-right:auto;color:var(--mut)">Registro de errores${S.log.length?` (${S.log.length})`:""}</button>
+    <button class="btn" id="dashClose">Cerrar</button>
+  </div>`);
   document.getElementById("dashClose").onclick=closeM;
+  document.getElementById("dashLog").onclick=modalLog;
+}
+
+function modalLog(){
+  const rows=S.log.slice(0,100).map(l=>{
+    const f=new Date(l.fecha);
+    return `<tr><td>${f.toLocaleDateString()} ${f.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</td>
+      <td>${esc(l.tipo)}</td><td>${esc(l.detalle)}</td></tr>`;
+  }).join("");
+  openM(`<h3>Registro de errores</h3>
+  <div class="fld"><div class="hint">Últimos fallos de sincronización o escritura a Google Sheets, más recientes primero.</div></div>
+  <table class="dashTbl"><thead><tr><th>Fecha</th><th>Tipo</th><th>Detalle</th></tr></thead>
+  <tbody>${rows||`<tr><td colspan="3" style="color:var(--mut)">Sin errores registrados.</td></tr>`}</tbody></table>
+  <div class="mrow">
+    <button class="btn" id="logClear" style="margin-right:auto;color:var(--mut)">Limpiar</button>
+    <button class="btn" id="logExport">Exportar</button>
+    <button class="btn" id="logClose">Cerrar</button>
+  </div>`);
+  document.getElementById("logClose").onclick=closeM;
+  document.getElementById("logClear").onclick=()=>{S.log=[];save();closeM();toast("Registro limpiado")};
+  document.getElementById("logExport").onclick=()=>{
+    const txt=S.log.map(l=>`${l.fecha}\t${l.tipo}\t${l.detalle}`).join("\n");
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(new Blob([txt],{type:"text/plain"}));
+    a.download="scantracker-log.txt";a.click();
+  };
 }
 
 function fmtDur(ms){
@@ -846,11 +865,6 @@ document.getElementById("bExport").onclick=()=>{
   a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
   a.download=sr.name.replace(/[^\w-]+/g,"_")+".csv";a.click();
 };
-
-// Diagnóstico temporal para el bug de "Mis tareas": abrí la consola del
-// navegador y corré scantrackerDebug(true), después dale a ⟳ Sincronizar.
-// Va a imprimir las filas crudas de la API y cómo quedaron parseadas.
-window.scantrackerDebug=on=>{S.debug=!!on;save();console.log("[scantracker] debug",S.debug?"activado":"desactivado","— sincronizá de nuevo para ver el log")};
 
 render();
 paintG();
