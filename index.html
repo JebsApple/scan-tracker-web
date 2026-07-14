@@ -72,6 +72,7 @@ td.cap{font-family:var(--mono);font-weight:700;font-size:13px}
 .prio.URGENTE{background:rgba(224,50,47,.18);color:#ff6b69}
 .prio.MODERADO{background:rgba(245,183,61,.14);color:var(--warn)}
 .prio.ATU{background:rgba(139,135,148,.15);color:var(--mut)}
+.prio.ECAP{background:rgba(139,135,148,.08);color:var(--mut);font-style:italic}
 .stage{display:flex;align-items:center;gap:7px;min-width:120px}
 .stage input[type=text]{width:92px;padding:4px 7px;font-size:12px;background:transparent;border-color:transparent}
 .stage input[type=text]:hover{border-color:var(--line)}
@@ -133,6 +134,7 @@ td.del button:hover{color:var(--red)}
     <option value="URGENTE">Urgente</option>
     <option value="MODERADO">Moderado</option>
     <option value="A TU TIEMPO">A tu tiempo</option>
+    <option value="E.CAP">Esperando capítulo</option>
   </select>
   <select id="fEstado" style="border-radius:99px">
     <option value="">Todo estado</option>
@@ -191,8 +193,8 @@ function toast(m){const t=document.getElementById("toast");t.textContent=m;t.cla
 const uid=()=>Math.random().toString(36).slice(2,9);
 const norm=s=>(s||"").trim().toLowerCase();
 const esMio=n=>n&&S.aliases.some(a=>norm(a)===norm(n));
-const prioClass=p=>p==="URGENTE"?"URGENTE":p==="MODERADO"?"MODERADO":"ATU";
-const PRIOS=["URGENTE","MODERADO","A TU TIEMPO"];
+const prioClass=p=>p==="URGENTE"?"URGENTE":p==="MODERADO"?"MODERADO":p==="E.CAP"?"ECAP":"ATU";
+const PRIOS=["URGENTE","MODERADO","A TU TIEMPO","E.CAP"];
 
 // Traduce errores de red/API a mensajes accionables. gvizUrl (fetch nativo)
 // no trae `.status` estructurado, se extrae del prefijo "HTTP <code>".
@@ -521,6 +523,17 @@ function misPend(sr){
 }
 function capCompleto(c){return ETAPAS.every(([k])=>c[k].done)}
 const ESP_LABEL={trad:"E.trad",limp:"E.clean",typ:"E.type",corr:"E.Corrección",sube:"E.subida"};
+// Urgentes que todavía me competen: si ya terminé TODAS mis etapas
+// asignadas en un capítulo, dejar de contarlo como urgente para mí aunque
+// el capítulo siga incompleto por otras personas (eso ya lo cubre esperando()).
+function urgentesParaMi(sr){
+  return sr.chapters.filter(c=>{
+    if(c.prio!=="URGENTE"||capCompleto(c))return false;
+    const misEtapas=ETAPAS.filter(([k])=>esMio(c[k].who));
+    if(misEtapas.length&&misEtapas.every(([k])=>c[k].done))return false;
+    return true;
+  }).length;
+}
 // Capítulos donde ya terminé mi etapa pero el capítulo sigue esperando otra —
 // agrupados por cuál es la próxima etapa incompleta (el "cuello de botella").
 function esperando(sr){
@@ -539,7 +552,7 @@ function render(){
   const sl=document.getElementById("serieList");
   sl.innerHTML=S.series.map(sr=>{
     const p=progreso(sr),mp=misPend(sr);
-    const urg=sr.chapters.filter(c=>c.prio==="URGENTE"&&!capCompleto(c)).length;
+    const urg=urgentesParaMi(sr);
     const esp=esperando(sr);
     const espBadges=Object.entries(esp).map(([k,n])=>
       `<span class="e" title="${n} capítulo(s) donde terminaste tu parte, esperando ${ETAPAS.find(([kk])=>kk===k)[1].toLowerCase()}">${ESP_LABEL[k]} ${n}</span>`).join("");
