@@ -138,6 +138,13 @@ td.del button:hover{color:var(--red)}
     <option value="pend">Pendientes</option>
     <option value="done">Completos</option>
   </select>
+  <select id="fEtapa" style="border-radius:99px">
+    <option value="">Toda etapa</option>
+  </select>
+  <select id="fOrden" style="border-radius:99px">
+    <option value="">Orden: Nº capítulo</option>
+    <option value="urgencia">Orden: urgencia</option>
+  </select>
   <input id="fBusca" placeholder="Buscar persona..." style="border-radius:99px;width:150px">
   <div class="sp"></div>
   <button class="btn" id="bGoogle">Conectar Google</button>
@@ -170,7 +177,9 @@ import { readSheet, writeCell as apiWriteCell, appendRow as apiAppendRow, delete
 /* ============ ESTADO ============ */
 const ETAPAS=[["trad","Traducción"],["limp","Limpieza"],["typ","Typeo"],["corr","Corrección"],["sube","Sube"]];
 const DEFAULT_CLIENT_ID="50665049250-ipcmj3jr7fakbmabk2tq32ea1nh3id1o.apps.googleusercontent.com";
-let S=load()||{aliases:[],series:[],sel:null,clientId:DEFAULT_CLIENT_ID,filters:{mine:false,prio:"",estado:"",busca:""},whoSnapshot:{},historial:[],startedAt:{}};
+let S=load()||{aliases:[],series:[],sel:null,clientId:DEFAULT_CLIENT_ID,filters:{mine:false,prio:"",estado:"",busca:"",etapa:"",orden:""},whoSnapshot:{},historial:[],startedAt:{}};
+S.filters.etapa=S.filters.etapa||"";
+S.filters.orden=S.filters.orden||"";
 S.whoSnapshot=S.whoSnapshot||{};
 S.historial=S.historial||[];
 S.startedAt=S.startedAt||{};
@@ -292,13 +301,14 @@ async function pushNewRow(sr,ch){
   if(!sr?.api)return;
   try{const row=await apiAppendRow(sr.sheetUrl,sr._title,
     [ch.num,ch.prio,"",false,"",false,"",false,"",false,"",false]);
-    if(row>0)ch.srcRow=row;
+    if(row>0){ch.srcRow=row;save()}
   }catch(e){toast("No se pudo agregar fila: "+friendlyError(e))}
 }
 async function pushDelRow(sr,ch){
   if(!sr?.api||!ch.srcRow)return;
   try{await apiDeleteRow(sr.sheetUrl,sr._gid,ch.srcRow);
     sr.chapters.forEach(c=>{if(c.srcRow>ch.srcRow)c.srcRow--});
+    save();
   }catch(e){toast("No se pudo borrar fila: "+friendlyError(e))}
 }
 
@@ -455,8 +465,9 @@ function modalSerie(){
   document.getElementById("snOk").onclick=async()=>{
     const name=document.getElementById("snName").value.trim();
     if(!name)return toast("Falta el nombre");
-    const sr={id:uid(),name,sheetUrl:null,chapters:[]};
     const v=src.value;
+    if(v==="file"&&!pendingFileCSV)return toast("Elegí un archivo CSV primero");
+    const sr={id:uid(),name,sheetUrl:null,chapters:[]};
     if(v==="manual"){
       const n=+document.getElementById("snN").value||0;
       for(let i=1;i<=n;i++)sr.chapters.push(nuevoCap(String(i)));
@@ -505,21 +516,28 @@ function render(){
   document.getElementById("fMine").classList.toggle("on",S.filters.mine);
   document.getElementById("fPrio").value=S.filters.prio;
   document.getElementById("fEstado").value=S.filters.estado;
+  document.getElementById("fEtapa").value=S.filters.etapa;
+  document.getElementById("fOrden").value=S.filters.orden;
 
   // contenido
   const sr=S.series.find(x=>x.id===S.sel);
   const ct=document.getElementById("content");
   if(!sr){ct.innerHTML=`<div id="empty"><div class="big">Scan<span style="color:var(--red)">Tracker</span></div><div>Selecciona o crea una serie para empezar.</div></div>`;return}
 
+  const etapas=S.filters.etapa?ETAPAS.filter(([k])=>k===S.filters.etapa):ETAPAS;
   let chs=sr.chapters.filter(c=>{
     if(S.filters.prio&&c.prio!==S.filters.prio)return false;
     if(S.filters.estado==="pend"&&capCompleto(c))return false;
     if(S.filters.estado==="done"&&!capCompleto(c))return false;
-    if(S.filters.mine&&!ETAPAS.some(([k])=>esMio(c[k].who)&&!c[k].done))return false;
+    if(S.filters.mine&&!etapas.some(([k])=>esMio(c[k].who)&&!c[k].done))return false;
     const b=norm(S.filters.busca);
-    if(b&&!ETAPAS.some(([k])=>norm(c[k].who).includes(b)))return false;
+    if(b&&!etapas.some(([k])=>norm(c[k].who).includes(b)))return false;
     return true;
   });
+  if(S.filters.orden==="urgencia"){
+    const rank=p=>PRIOS.indexOf(p);
+    chs=[...chs].sort((a,b)=>rank(a.prio)-rank(b.prio));
+  }
 
   const head=`<div id="serieHead">
     <h2>${esc(sr.name)}</h2>
@@ -603,6 +621,10 @@ document.getElementById("content").addEventListener("change",e=>{
 document.getElementById("fMine").onclick=()=>{S.filters.mine=!S.filters.mine;save();render()};
 document.getElementById("fPrio").onchange=e=>{S.filters.prio=e.target.value;save();render()};
 document.getElementById("fEstado").onchange=e=>{S.filters.estado=e.target.value;save();render()};
+document.getElementById("fEtapa").innerHTML=`<option value="">Toda etapa</option>`+
+  ETAPAS.map(([k,label])=>`<option value="${k}">${label}</option>`).join("");
+document.getElementById("fEtapa").onchange=e=>{S.filters.etapa=e.target.value;save();render()};
+document.getElementById("fOrden").onchange=e=>{S.filters.orden=e.target.value;save();render()};
 document.getElementById("fBusca").oninput=e=>{S.filters.busca=e.target.value;render()};
 document.getElementById("bCfg").onclick=modalAliases;
 document.getElementById("bDash").onclick=modalDashboard;
