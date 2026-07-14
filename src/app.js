@@ -1,6 +1,7 @@
 import { initAuth, trySilentLogin, DEFAULT_CLIENT_ID } from "./repositories/auth.js";
-import { S, save } from "./state/store.js";
+import { S, save, onSave } from "./state/store.js";
 import { undo, redo } from "./state/history.js";
+import { isNative, requestBackgroundPermissions, pushMobileConfig } from "./mobile/capacitor-bridge.js";
 import { syncAll } from "./services/sync-service.js";
 import { etapasDe } from "./services/etapas-service.js";
 import { render, wireRenderEvents } from "./ui/render.js";
@@ -65,3 +66,13 @@ document.getElementById("bExport").onclick = () => {
 render();
 paintG();
 if (!S.aliases.length && !S.series.length) setTimeout(modalAliases, 400);
+
+// Solo hace algo dentro de la app Android empaquetada (window.Capacitor no
+// existe en el browser normal). El chequeo en background solo puede leer
+// Sheets públicos (gviz) — no hay forma de reautenticar OAuth sin pantalla.
+if (isNative()) {
+  requestBackgroundPermissions();
+  const syncMobileConfig = () => pushMobileConfig(S.series.filter((s) => s.sheetUrl).map((s) => s.sheetUrl), S.aliases);
+  onSave(syncMobileConfig);
+  syncMobileConfig();
+}
