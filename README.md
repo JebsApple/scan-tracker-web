@@ -2,45 +2,74 @@
 
 Tracker de scanlation (traducción, limpieza, typeset, corrección, sube) sincronizado con Google Sheets — directo desde el browser, sin backend, sin instalación.
 
-Pivote de [`scan-tracker-desktop`](https://github.com/JebsApple/scan-tracker-desktop) (idea original en Java/JavaFX, jun 2026): mismo HTML/UI, pero el OAuth y el habla con Sheets ahora corren en el browser vía Google Identity Services en vez de un backend Java. Ver plan completo en `~/Vault/02-Projects/scan-tracker-web/`.
+## Uso (para el equipo)
 
-## Cómo correrlo local
+1. Abrí la app: https://jebsapple.github.io/scan-tracker-web/
+2. Click **Conectar Google** e iniciá sesión — no hace falta pegar ningún ID ni configurar nada.
+3. **+ Serie** para vincular un Sheet (elegí de "Compartidos conmigo" o pegá la URL directo).
+4. Cargá tu(s) alias en **Mis nombres** para que "Mis tareas" te filtre lo tuyo.
+
+Eso es todo. El resto de esta página es para quien mantiene el proyecto (Client ID, deploy, estructura interna) — no hace falta leerlo para usar la app.
+
+---
+
+## Mantenimiento del proyecto
+
+### Correr local
 
 ```bash
 python3 -m http.server 8080
 # abrir http://localhost:8080/index.html
 ```
 
-No hay build step — es HTML + ES modules servidos tal cual.
+Sin build step — HTML + ES modules servidos tal cual.
 
-## Configurar Google (una vez, solo quien mantiene el proyecto)
+### Configurar Google (una vez, solo quien administra el Client ID)
 
-El Client ID ya viene fijo en el código (`DEFAULT_CLIENT_ID` en `index.html`) — un usuario final solo hace click en **Conectar Google** e inicia sesión, sin pegar nada. Esto es para quien administre ese Client ID en Google Cloud Console:
+El Client ID ya viene fijo en el código (`DEFAULT_CLIENT_ID` en `src/repositories/auth.js`) — por eso el equipo no configura nada. Para quien administre ese Client ID en Google Cloud Console:
 
 1. [Google Cloud Console](https://console.cloud.google.com) → APIs y servicios → Biblioteca → habilitar **Google Sheets API** y **Google Drive API**.
-2. Pantalla de consentimiento OAuth → Scopes → agregar `spreadsheets`, `userinfo.email` y `drive.metadata.readonly` (este último es para listar "Compartidos conmigo" al crear una serie — nunca lee contenido de archivos, solo nombre/id).
+2. Pantalla de consentimiento OAuth → Scopes → agregar `spreadsheets`, `userinfo.email` y `drive.metadata.readonly` (este último solo para listar "Compartidos conmigo" — nunca lee contenido de archivos, solo nombre/id).
 3. Si la app no está verificada por Google, agregar como "test users" a cada persona del equipo en esa misma pantalla, o van a ver un aviso de "app no verificada" al loguearse.
 4. Credenciales → Crear credenciales → ID de cliente de OAuth → tipo **Aplicación web**.
 5. En "Orígenes de JavaScript autorizados" agregá `http://localhost:8080` (o tu dominio de deploy, ej. GitHub Pages).
 6. No hace falta client_secret — los Client ID de tipo web son públicos por diseño (Google los autoriza por origen, no por secreto).
-7. Pegar ese Client ID como `DEFAULT_CLIENT_ID` en `index.html` (buscar la constante cerca del inicio del `<script type="module">`).
+7. Pegar ese Client ID como `DEFAULT_CLIENT_ID` en `src/repositories/auth.js`.
 
-## Estructura
-
-```
-index.html          UI completa (portada de scan-tracker.html original) + lógica de dominio
-src/auth.js          Google Identity Services — login/token/email, sin backend
-src/sheets-api.js     Sheets API v4 REST — readSheet/writeCell/appendRow/deleteRow (fetch directo)
-```
-
-## Contrato del sheet
-
-Mismas columnas que el [plugin de Obsidian](https://github.com/JebsApple/scan-tracker-obsidian-plugin) (no público aún) — así ambas herramientas leen/escriben el mismo spreadsheet sin pisarse:
+### Estructura
 
 ```
-Capítulo | Prioridad | TRAD who | TRAD done | LIMP who | LIMP done | TYP who | TYP done | CORR who | CORR done | SUBE who | SUBE done
+index.html                       shell: HTML + <link> a styles/ + <script type="module" src="src/app.js">
+src/
+  app.js                          punto de entrada, wiring de eventos
+  utils.js                        esc/uid/norm/isMyAlias/fmtDur/friendlyError/parseCSV
+  state/
+    store.js                      estado global S, load/save, migración
+    history.js                    deshacer/rehacer + re-sync de series con Sheets tras undo/redo
+  repositories/
+    auth.js                       Google Identity Services (login/token/email)
+    sheets-api.js                 Sheets API v4 REST (readSheet/writeCell/appendRow/deleteRow)
+    drive-api.js                  Drive API (listar "Compartidos conmigo")
+    sheets-repository.js          envoltorio fino sobre los anteriores + fallback público (gviz)
+  services/
+    etapas-service.js             detección de contrato de columnas por hoja + parseo CSV
+    stats-service.js              progreso, pendientes, urgentes, cuellos de botella, carga por persona
+    filters-service.js            filtrado/orden de capítulos
+    sync-service.js                orquesta repository+stats: fetch, push, notificaciones
+  ui/
+    render.js                     render principal + eventos delegados de tabla/sidebar
+    modals.js                     Dashboard, Historial, Mis pendientes, Google, Aliases, Serie, Log
+    icons.js / toast.js
+styles/
+  tokens.css                      variables de color/tipografía/espaciado
+  base.css                        reset y elementos genéricos
+  components.css                  estilos específicos de esta app
 ```
 
-## Deploy
+### Contrato del sheet
 
-Estático — cualquier host sirve (GitHub Pages, Netlify, Vercel). Solo hay que agregar el origen final a "Orígenes de JavaScript autorizados" en el Client ID de Google Cloud.
+Cada serie **autodetecta** sus propias etapas leyendo el encabezado real de esa hoja (fila que empieza con "Cap..."): cuenta pares `who`/`done` desde la columna C en adelante, cualquier cantidad de etapas con cualquier nombre. No hay un contrato fijo global — el mismo mecanismo funciona con hojas de 4 o 5 etapas, nombradas como sea (ver `services/etapas-service.js`).
+
+### Deploy
+
+Estático — cualquier host sirve (GitHub Pages, Netlify, Vercel). Agregar el origen final a "Orígenes de JavaScript autorizados" en el Client ID de Google Cloud.
