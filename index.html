@@ -176,14 +176,14 @@ import { readSheet, writeCell as apiWriteCell, appendRow as apiAppendRow, delete
 
 /* ============ ESTADO ============ */
 const ETAPAS=[["trad","Traducción"],["limp","Limpieza"],["typ","Typeo"],["corr","Corrección"],["sube","Sube"]];
-const DEFAULT_CLIENT_ID="50665049250-ipcmj3jr7fakbmabk2tq32ea1nh3id1o.apps.googleusercontent.com";
+const DEFAULT_CLIENT_ID="50665049250-07f71ktrd7a8gd8fhg63l3jhv4hdnu6k.apps.googleusercontent.com";
 let S=load()||{aliases:[],series:[],sel:null,clientId:DEFAULT_CLIENT_ID,filters:{mine:false,prio:"",estado:"",busca:"",etapa:"",orden:""},whoSnapshot:{},historial:[],startedAt:{}};
 S.filters.etapa=S.filters.etapa||"";
 S.filters.orden=S.filters.orden||"";
 S.whoSnapshot=S.whoSnapshot||{};
 S.historial=S.historial||[];
 S.startedAt=S.startedAt||{};
-if(!S.clientId)S.clientId=DEFAULT_CLIENT_ID;
+if(!S.clientId||S.clientId==="50665049250-ipcmj3jr7fakbmabk2tq32ea1nh3id1o.apps.googleusercontent.com")S.clientId=DEFAULT_CLIENT_ID;
 function save(){try{localStorage.setItem("scantracker",JSON.stringify(S))}catch(e){}}
 function load(){try{return JSON.parse(localStorage.getItem("scantracker"))}catch(e){return null}}
 function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2200)}
