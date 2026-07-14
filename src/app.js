@@ -2,6 +2,7 @@ import { initAuth, trySilentLogin, DEFAULT_CLIENT_ID } from "./repositories/auth
 import { S, save, onSave } from "./state/store.js";
 import { undo, redo } from "./state/history.js";
 import { isNative, requestBackgroundPermissions, pushMobileConfig } from "./mobile/capacitor-bridge.js";
+import { isSignedIn } from "./repositories/auth-facade.js";
 import { syncAll } from "./services/sync-service.js";
 import { etapasDe } from "./services/etapas-service.js";
 import { render, wireRenderEvents } from "./ui/render.js";
@@ -15,6 +16,7 @@ import {
   modalMisPendientes,
   paintG,
   refreshGoogleSession,
+  connectGoogle,
 } from "./ui/modals.js";
 
 try {
@@ -40,7 +42,10 @@ document.getElementById("fMine").onclick = modalMisPendientes;
 document.getElementById("bCfg").onclick = modalAliases;
 document.getElementById("bDash").onclick = modalDashboard;
 document.getElementById("bHist").onclick = modalHistorial;
-document.getElementById("bGoogle").onclick = modalGoogle;
+// Un solo toque para conectar cuando no hay sesión — antes había que abrir
+// un modal y tocar OTRO botón adentro para lo mismo. Ya con sesión, el botón
+// abre el modal (ver cuenta / cerrar sesión), que sí amerita un paso extra.
+document.getElementById("bGoogle").onclick = () => (isSignedIn() ? modalGoogle() : connectGoogle());
 document.getElementById("bAddSerie").onclick = modalSerie;
 document.getElementById("bSync").onclick = () => syncAll(true).then(render);
 document.getElementById("bUndo").onclick = () => undo(render);

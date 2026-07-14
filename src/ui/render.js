@@ -14,6 +14,9 @@ import { PRIOS, prioClass, etapasVisibles, filtrarCapitulos } from "../services/
 import { pushCell, pushNewRow, pushDelRow, COLW } from "../services/sync-service.js";
 import { esc } from "../utils.js";
 import { icon } from "./icons.js";
+import { confirmModal } from "./modals.js";
+import { pushCloudState } from "../services/cloud-sync-service.js";
+import { isSignedIn } from "../repositories/auth-facade.js";
 
 export function render() {
   // sidebar
@@ -176,21 +179,32 @@ function addCap(s) {
 
 function delCap(s, c) {
   const sr = S.series.find((x) => x.id === s);
-  if (!confirm("¿Eliminar capítulo?" + (sr.api ? " (también se borrará la fila en la hoja de Google)" : ""))) return;
   const ch = sr.chapters.find((x) => x.id === c);
-  sr.chapters = sr.chapters.filter((x) => x.id !== c);
-  save();
-  render();
-  pushDelRow(sr, ch);
+  confirmModal({
+    title: "Eliminar capítulo",
+    body: `¿Eliminar el capítulo ${esc(ch.num)}?` + (sr.api ? " También se borra la fila en la hoja de Google." : ""),
+    onConfirm: () => {
+      sr.chapters = sr.chapters.filter((x) => x.id !== c);
+      save();
+      render();
+      pushDelRow(sr, ch);
+    },
+  });
 }
 
 function delSerie(s) {
   const sr = S.series.find((x) => x.id === s);
-  if (!confirm(`¿Eliminar "${sr.name}" y todos sus capítulos?`)) return;
-  S.series = S.series.filter((x) => x.id !== s);
-  if (S.sel === s) S.sel = S.series[0]?.id || null;
-  save();
-  render();
+  confirmModal({
+    title: "Eliminar serie",
+    body: `Se deja de trackear "${esc(sr.name)}" acá — el Sheet vinculado no se toca, los datos siguen ahí. Podés volver a agregarla pegando la URL de nuevo.`,
+    onConfirm: () => {
+      S.series = S.series.filter((x) => x.id !== s);
+      if (S.sel === s) S.sel = S.series[0]?.id || null;
+      save();
+      render();
+      if (sr.sheetUrl && isSignedIn()) pushCloudState();
+    },
+  });
 }
 
 function toggleOculto(s, num) {
