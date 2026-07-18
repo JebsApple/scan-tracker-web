@@ -6,11 +6,14 @@
 
 // drive.metadata.readonly: solo para listar "Compartidos conmigo" (nombre +
 // id de archivo), nunca lee contenido — eso sigue yendo por el scope de
-// spreadsheets. Es un scope "sensible" en Google Cloud Console: hay que
-// habilitar Google Drive API y agregar este scope en la pantalla de
+// spreadsheets. drive.appdata: carpeta privada de la app en el Drive del
+// usuario, para sincronizar qué series/alias tiene registrados entre
+// dispositivos (ver services/cloud-sync-service.js) — no accede a archivos
+// normales del usuario. Son scopes "sensibles" en Google Cloud Console: hay
+// que habilitar Google Drive API y agregarlos en la pantalla de
 // consentimiento OAuth (y agregar test users si la app no está verificada).
 const SCOPES =
-  "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/drive.metadata.readonly";
+  "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/drive.metadata.readonly https://www.googleapis.com/auth/drive.appdata";
 
 let tokenClient = null;
 let currentToken = null; // { access_token: string, expires_at: number }

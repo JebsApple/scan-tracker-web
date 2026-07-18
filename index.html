@@ -93,40 +93,66 @@
     <path d="m17 8-5-5-5 5" />
     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
   </symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24">
+    <path d="M4 5h16" />
+    <path d="M4 12h16" />
+    <path d="M4 19h16" />
+  </symbol>
+  <symbol id="i-filter" viewBox="0 0 24 24">
+    <path d="M2 5h20" />
+    <path d="M6 12h12" />
+    <path d="M9 19h6" />
+  </symbol>
+  <symbol id="i-more" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="1" />
+    <circle cx="12" cy="5" r="1" />
+    <circle cx="12" cy="19" r="1" />
+  </symbol>
 </svg>
 
 <div id="top">
+  <button class="btn" id="bDrawer" title="Series"><svg class="icon"><use href="#i-menu"/></svg></button>
   <div id="logo">SCAN<b>TRACKER</b></div>
   <button class="btn" id="fMine"><svg class="icon"><use href="#i-list-checks"/></svg> Mis tareas</button>
-  <select id="fPrio" style="border-radius:99px">
-    <option value="">Toda prioridad</option>
-    <option value="URGENTE">Urgente</option>
-    <option value="MODERADO">Moderado</option>
-    <option value="A TU TIEMPO">A tu tiempo</option>
-  </select>
-  <select id="fEstado" style="border-radius:99px">
-    <option value="">Todo estado</option>
-    <option value="pend">Pendientes</option>
-    <option value="done">Completos</option>
-  </select>
-  <select id="fEtapa" style="border-radius:99px">
-    <option value="">Toda etapa</option>
-  </select>
-  <select id="fOrden" style="border-radius:99px">
-    <option value="">Orden: Nº capítulo</option>
-    <option value="urgencia">Orden: urgencia</option>
-  </select>
-  <input id="fBusca" placeholder="Buscar persona..." style="border-radius:99px;width:150px">
+
+  <button class="btn" id="bFiltersToggle" title="Filtros"><svg class="icon"><use href="#i-filter"/></svg></button>
+  <div id="filtersPanel" class="filtersPanel">
+    <select id="fPrio" style="border-radius:99px">
+      <option value="">Toda prioridad</option>
+      <option value="URGENTE">Urgente</option>
+      <option value="MODERADO">Moderado</option>
+      <option value="A TU TIEMPO">A tu tiempo</option>
+    </select>
+    <select id="fEstado" style="border-radius:99px">
+      <option value="">Todo estado</option>
+      <option value="pend">Pendientes</option>
+      <option value="done">Completos</option>
+    </select>
+    <select id="fEtapa" style="border-radius:99px">
+      <option value="">Toda etapa</option>
+    </select>
+    <select id="fOrden" style="border-radius:99px">
+      <option value="">Orden: Nº capítulo</option>
+      <option value="urgencia">Orden: urgencia</option>
+    </select>
+    <input id="fBusca" placeholder="Buscar persona..." style="border-radius:99px;width:150px">
+  </div>
+
   <div class="sp"></div>
   <button class="btn" id="bGoogle"><svg class="icon"><use href="#i-log-in"/></svg> Conectar Google</button>
   <button class="btn" id="bUndo" title="Deshacer" disabled><svg class="icon"><use href="#i-undo-2"/></svg></button>
   <button class="btn" id="bRedo" title="Rehacer" disabled><svg class="icon"><use href="#i-redo-2"/></svg></button>
   <button class="btn" id="bSync" title="Recargar hojas vinculadas de Google"><svg class="icon"><use href="#i-refresh-cw"/></svg> Sincronizar</button>
-  <button class="btn" id="bDash"><svg class="icon"><use href="#i-layout-dashboard"/></svg> Dashboard</button>
-  <button class="btn" id="bHist"><svg class="icon"><use href="#i-history"/></svg> Mi historial</button>
-  <button class="btn" id="bCfg"><svg class="icon"><use href="#i-settings"/></svg> Mis nombres</button>
+
+  <button class="btn" id="bMoreToggle" title="Más"><svg class="icon"><use href="#i-more"/></svg></button>
+  <div id="morePanel" class="morePanel">
+    <button class="btn" id="bDash"><svg class="icon"><use href="#i-layout-dashboard"/></svg> Dashboard</button>
+    <button class="btn" id="bHist"><svg class="icon"><use href="#i-history"/></svg> Mi historial</button>
+    <button class="btn" id="bCfg"><svg class="icon"><use href="#i-settings"/></svg> Mis nombres</button>
+  </div>
 </div>
 
+<div id="drawerBackdrop"></div>
 <div id="main">
   <div id="side">
     <h3>Series</h3>

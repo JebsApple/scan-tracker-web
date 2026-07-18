@@ -1,6 +1,7 @@
-import { initAuth, trySilentLogin, DEFAULT_CLIENT_ID } from "./repositories/auth.js";
-import { S, save } from "./state/store.js";
+import { initAuth, trySilentLogin, isSignedIn, DEFAULT_CLIENT_ID } from "./repositories/auth-facade.js";
+import { S, save, onSave } from "./state/store.js";
 import { undo, redo } from "./state/history.js";
+import { isNative, requestBackgroundPermissions, pushMobileConfig } from "./mobile/capacitor-bridge.js";
 import { syncAll } from "./services/sync-service.js";
 import { etapasDe } from "./services/etapas-service.js";
 import { render, wireRenderEvents } from "./ui/render.js";
@@ -14,10 +15,11 @@ import {
   modalMisPendientes,
   paintG,
   refreshGoogleSession,
+  connectGoogle,
 } from "./ui/modals.js";
 
 try {
-  initAuth(DEFAULT_CLIENT_ID);
+  await initAuth(DEFAULT_CLIENT_ID);
 } catch (e) {}
 
 // Reintento silencioso: si ya diste consentimiento antes, no hace falta
@@ -39,11 +41,56 @@ document.getElementById("fMine").onclick = modalMisPendientes;
 document.getElementById("bCfg").onclick = modalAliases;
 document.getElementById("bDash").onclick = modalDashboard;
 document.getElementById("bHist").onclick = modalHistorial;
-document.getElementById("bGoogle").onclick = modalGoogle;
+// Un solo toque para conectar cuando no hay sesión — antes había que abrir
+// un modal y tocar OTRO botón adentro para lo mismo. Ya con sesión, el botón
+// abre el modal (ver cuenta / cerrar sesión), que sí amerita un paso extra.
+document.getElementById("bGoogle").onclick = () => (isSignedIn() ? modalGoogle() : connectGoogle());
 document.getElementById("bAddSerie").onclick = modalSerie;
 document.getElementById("bSync").onclick = () => syncAll(true).then(render);
 document.getElementById("bUndo").onclick = () => undo(render);
 document.getElementById("bRedo").onclick = () => redo(render);
+
+// Togglers de mobile (ocultos por CSS en desktop, ver styles/components.css
+// breakpoint 700px): drawer de series, panel de filtros, menú "más".
+function toggle(el, force) {
+  const open = force ?? !el.classList.contains("open");
+  el.classList.toggle("open", open);
+  return open;
+}
+const drawer = document.getElementById("side");
+const backdrop = document.getElementById("drawerBackdrop");
+const filtersPanel = document.getElementById("filtersPanel");
+const morePanel = document.getElementById("morePanel");
+function closeAllPanels() {
+  drawer.classList.remove("open");
+  backdrop.classList.remove("open");
+  filtersPanel.classList.remove("open");
+  morePanel.classList.remove("open");
+}
+document.getElementById("bDrawer").onclick = () => {
+  const open = toggle(drawer);
+  toggle(backdrop, open);
+};
+backdrop.onclick = closeAllPanels;
+document.getElementById("bFiltersToggle").onclick = (e) => {
+  e.stopPropagation();
+  const open = toggle(filtersPanel);
+  morePanel.classList.remove("open");
+  if (open) toggle(backdrop, false); // el panel de filtros cierra solo (afuera), no necesita backdrop
+};
+document.getElementById("bMoreToggle").onclick = (e) => {
+  e.stopPropagation();
+  toggle(morePanel);
+  filtersPanel.classList.remove("open");
+};
+document.addEventListener("click", (e) => {
+  if (!filtersPanel.contains(e.target) && e.target.id !== "bFiltersToggle") filtersPanel.classList.remove("open");
+  if (!morePanel.contains(e.target) && e.target.id !== "bMoreToggle") morePanel.classList.remove("open");
+});
+document.getElementById("serieList").addEventListener("click", (e) => {
+  if (e.target.closest("[data-sel]")) closeAllPanels();
+});
+document.getElementById("morePanel").addEventListener("click", () => morePanel.classList.remove("open"));
 
 document.getElementById("bExport").onclick = () => {
   const sr = S.series.find((x) => x.id === S.sel);
@@ -65,3 +112,13 @@ document.getElementById("bExport").onclick = () => {
 render();
 paintG();
 if (!S.aliases.length && !S.series.length) setTimeout(modalAliases, 400);
+
+// Solo hace algo dentro de la app Android empaquetada (window.Capacitor no
+// existe en el browser normal). El chequeo en background solo puede leer
+// Sheets públicos (gviz) — no hay forma de reautenticar OAuth sin pantalla.
+if (isNative()) {
+  requestBackgroundPermissions();
+  const syncMobileConfig = () => pushMobileConfig(S.series.filter((s) => s.sheetUrl).map((s) => s.sheetUrl), S.aliases);
+  onSave(syncMobileConfig);
+  syncMobileConfig();
+}

@@ -1,0 +1,15 @@
+{
+  "appId": "cl.jebsapple.scantracker",
+  "appName": "ScanTracker",
+  "webDir": "www",
+  "plugins": {
+    "BackgroundRunner": {
+      "label": "cl.jebsapple.scantracker.check",
+      "src": "runners/background.js",
+      "event": "checkDesignations",
+      "repeat": true,
+      "interval": 15,
+      "autoStart": true
+    }
+  }
+}

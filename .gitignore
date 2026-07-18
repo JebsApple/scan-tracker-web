@@ -1,3 +1,12 @@
 .DS_Store
 *.log
 .claude/worktrees/
+
+# App móvil (Capacitor) — generado, no versionar
+node_modules/
+www/
+android/local.properties
+android/.gradle/
+android/build/
+android/app/build/
+android/capacitor-cordova-android-plugins/build/

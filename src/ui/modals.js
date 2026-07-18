@@ -6,9 +6,10 @@ import {
   signOut as gSignOut,
   fetchEmail,
   DEFAULT_CLIENT_ID,
-} from "../repositories/auth.js";
+} from "../repositories/auth-facade.js";
 import { listSheetTabs, listSharedSheets } from "../repositories/sheets-repository.js";
 import { fetchSheet, checkDesignations, syncAll } from "../services/sync-service.js";
+import { pullCloudState, pushCloudState } from "../services/cloud-sync-service.js";
 import { etapasDe, csvToChapters, nuevoCap } from "../services/etapas-service.js";
 import { esOculto, capCompleto, esperandoGlobal, cargaPorPersona } from "../services/stats-service.js";
 import { PRIOS, prioClass } from "../services/filters-service.js";
@@ -21,6 +22,13 @@ const ovl = document.getElementById("ovl"), modal = document.getElementById("mod
 export function openM(html) {
   modal.innerHTML = html;
   ovl.classList.add("show");
+  // El drawer de series (mobile) tiene z-index mayor que el modal — si queda
+  // abierto por detrás confunde. Un modal reemplaza cualquier panel mobile
+  // abierto, nunca conviven los dos.
+  document.getElementById("side")?.classList.remove("open");
+  document.getElementById("drawerBackdrop")?.classList.remove("open");
+  document.getElementById("filtersPanel")?.classList.remove("open");
+  document.getElementById("morePanel")?.classList.remove("open");
 }
 export function closeM() {
   ovl.classList.remove("show");
@@ -28,6 +36,20 @@ export function closeM() {
 ovl.onclick = (e) => {
   if (e.target === ovl) closeM();
 };
+
+/** Confirmación propia en vez de confirm() nativo del sistema — un dialog
+ * del OS entrena al usuario a tocar "OK" por reflejo; un botón rojo con
+ * copy explícito dentro de la misma UI de la app pide una decisión real. */
+export function confirmModal({ title, body, confirmLabel = "Eliminar", onConfirm }) {
+  openM(`<h3>${esc(title)}</h3>
+  <div class="fld"><div class="hint">${body}</div></div>
+  <div class="mrow"><button class="btn" id="confirmCancel">Cancelar</button><button class="btn red" id="confirmOk">${esc(confirmLabel)}</button></div>`);
+  document.getElementById("confirmCancel").onclick = closeM;
+  document.getElementById("confirmOk").onclick = () => {
+    closeM();
+    onConfirm();
+  };
+}
 
 let gMail = "";
 export function paintG() {
@@ -44,6 +66,26 @@ export function paintG() {
 export async function refreshGoogleSession() {
   gMail = await fetchEmail();
   paintG();
+}
+
+/** Login real — separado de modalGoogle() para que el botón de la topbar lo
+ * dispare directo en un solo toque cuando no hay sesión, en vez de forzar
+ * abrir un modal que a su vez tiene otro botón adentro para lo mismo. */
+export async function connectGoogle() {
+  try {
+    await initAuth(DEFAULT_CLIENT_ID);
+    await requestToken();
+    await refreshGoogleSession();
+    toast("Sesión iniciada");
+    const added = await pullCloudState();
+    if (added) toast(`${added} serie(s) traídas de otro dispositivo`);
+    syncAll(false).then(render);
+    render();
+    return true;
+  } catch (e) {
+    toast("Error: " + e.message);
+    return false;
+  }
 }
 
 export function modalAliases() {
@@ -66,6 +108,7 @@ export function modalAliases() {
     save();
     draw();
     render();
+    if (isSignedIn()) pushCloudState();
   };
   document.getElementById("aliasAdd").onclick = () => {
     const v = document.getElementById("aliasIn").value;
@@ -76,6 +119,7 @@ export function modalAliases() {
         if (!esMio(a)) S.aliases.push(a);
       });
     document.getElementById("aliasIn").value = "";
+    if (isSignedIn()) pushCloudState();
     save();
     draw();
     render();
@@ -101,18 +145,10 @@ export function modalGoogle() {
   document.getElementById("gClose").onclick = closeM;
   document.getElementById("gInB").onclick = async () => {
     const b = document.getElementById("gInB");
-    b.textContent = "Abriendo popup de Google...";
+    b.textContent = "Conectando con Google...";
     b.disabled = true;
-    try {
-      initAuth(DEFAULT_CLIENT_ID); // idempotente, defensivo por si el init inicial falló en silencio
-      await requestToken();
-      await refreshGoogleSession();
-      st();
-      toast("Sesión iniciada");
-      syncAll(false).then(render);
-    } catch (e) {
-      toast("Error: " + e.message);
-    }
+    await connectGoogle();
+    st();
     b.innerHTML = `${icon("log-in")} Iniciar sesión con Google`;
     b.disabled = false;
   };
@@ -379,5 +415,6 @@ export function modalSerie() {
     save();
     render();
     closeM();
+    if (sr.sheetUrl) pushCloudState();
   };
 }
