@@ -1,14 +1,12 @@
 // Firebase initialization — compat SDK loaded via CDN in index.html.
-// Reemplená los placeholders con los valores de tu proyecto Firebase
-// (ver PLAN-Manual-Steps.md para instrucciones paso a paso).
 
 const firebaseConfig = {
-  apiKey:            "TU_API_KEY",
-  authDomain:        "TU_PROJECT.firebaseapp.com",
-  projectId:         "TU_PROJECT_ID",
-  storageBucket:     "TU_PROJECT.appspot.com",
-  messagingSenderId: "TU_SENDER_ID",
-  appId:             "TU_APP_ID",
+  apiKey:            "AIzaSyAWdR2SRdmYQ0wtMAV426MeZqzl_1gAQU0",
+  authDomain:        "scan-tracker-5ef75.firebaseapp.com",
+  projectId:         "scan-tracker-5ef75",
+  storageBucket:     "scan-tracker-5ef75.firebasestorage.app",
+  messagingSenderId: "287109091241",
+  appId:             "1:287109091241:web:1c3cceffd94964fd8b3eb8",
 };
 
 // Inicializa solo una vez (module scope)
@@ -20,5 +18,5 @@ export const db   = firebase.firestore();
 // Emails de testers que pueden loguearse con Google.
 // Agregá/quitá emails acá — solo estos usuarios pueden usar el botón de Google.
 export const TESTER_EMAILS = [
-  // "tu@email.com",
+  "mnznpremium756@gmail.com",
 ];
