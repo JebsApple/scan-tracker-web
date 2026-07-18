@@ -18,7 +18,6 @@ import {
   connectGoogle,
 } from "./ui/modals.js";
 import { isChileno, toggleChileno } from "./chileno.js";
-import { toast } from "./ui/toast.js";
 
 try {
   await initAuth(DEFAULT_CLIENT_ID);
