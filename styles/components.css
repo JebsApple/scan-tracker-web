@@ -1,8 +1,6 @@
 /* TOPBAR */
 #top{display:flex;align-items:center;gap:14px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
 #logo{font-family:var(--disp);font-weight:700;font-size:20px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;user-select:none}
-.logo-s{color:var(--txt)}
-.logo-can{color:#3b82f6}
 .logo-tracker{color:var(--red)}
 #top .sp{flex:1}
 #filtersPanel,#morePanel{display:contents}
