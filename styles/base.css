@@ -10,4 +10,4 @@ input:focus,select:focus{border-color:var(--red)}
 .btn.red:hover{background:#c92825}
 .btn:disabled{opacity:.35;cursor:default;pointer-events:none}
 .icon{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-0.15em;flex-shrink:0}
-body.chileno #logo{color:#d52b1e}body.chileno #logo b{color:#0039a6}
+body.chileno .logo-s{color:#fff}body.chileno .logo-can{color:#0039a6}body.chileno .logo-tracker{color:#d52b1e}

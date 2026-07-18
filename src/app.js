@@ -110,7 +110,7 @@ document.getElementById("bExport").onclick = () => {
   a.click();
 };
 
-// Easter egg: triple-click en el logo activa modo chileno
+// Easter egg: toca el logo para activar/desactivar modo chileno
 document.getElementById("logo").addEventListener("click", () => {
   const on = toggleChileno();
   document.body.classList.toggle("chileno", on);
