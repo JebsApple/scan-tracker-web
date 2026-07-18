@@ -11,6 +11,15 @@ Tracker de scanlation (traducción, limpieza, typeset, corrección, sube) sincro
 
 Eso es todo. El resto de esta página es para quien mantiene el proyecto (Client ID, deploy, estructura interna) — no hace falta leerlo para usar la app.
 
+## App Android (opcional)
+
+La misma app, empaquetada con Capacitor, con una ventaja: **notificaciones aunque el teléfono esté bloqueado y la app cerrada** — un chequeo en background avisa cuando te asignan un capítulo (solo en Sheets públicos; los privados requieren la app abierta).
+
+1. Descargá el APK desde [Releases](https://github.com/JebsApple/scan-tracker-web/releases) e instalalo (Android va a pedir permitir "orígenes desconocidos" — es normal para apps fuera de Play Store).
+2. Abrila y logueate con **un toque** (selector de cuenta nativo de Google, sin pegar nada).
+3. Aceptá el permiso de notificaciones cuando lo pida.
+4. Todo lo demás funciona igual que la versión web, y ambas comparten tus series y alias vía la sincronización con tu cuenta de Google.
+
 ---
 
 ## Mantenimiento del proyecto
@@ -69,6 +78,17 @@ styles/
 ### Contrato del sheet
 
 Cada serie **autodetecta** sus propias etapas leyendo el encabezado real de esa hoja (fila que empieza con "Cap..."): cuenta pares `who`/`done` desde la columna C en adelante, cualquier cantidad de etapas con cualquier nombre. No hay un contrato fijo global — el mismo mecanismo funciona con hojas de 4 o 5 etapas, nombradas como sea (ver `services/etapas-service.js`).
+
+### Build del APK (Android)
+
+```bash
+npm install               # una vez
+npm run cap:sync          # arma www/ y sincroniza plugins de Capacitor
+cd android && ./gradlew assembleDebug
+# APK queda en android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+El runner de background (`src/mobile/background.js`) corre en un motor JS aislado sin DOM ni localStorage — si se toca ese archivo hay que rebuildear el APK, no basta con el deploy web.
 
 ### Deploy
 
