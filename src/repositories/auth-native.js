@@ -11,7 +11,7 @@
 // plugin directo (el browser/WebView no resuelve specifiers bare como
 // "@capawesome/..."). El runtime nativo inyecta window.Capacitor.Plugins.*
 // antes de cargar esta página, igual que en mobile/capacitor-bridge.js.
-import { DEFAULT_CLIENT_ID } from "./auth.js";
+export { DEFAULT_CLIENT_ID } from "./auth.js";
 
 const GoogleSignIn = () => window.Capacitor.Plugins.GoogleSignIn;
 
@@ -24,8 +24,6 @@ const SCOPES = [
 
 let initialized = false;
 let session = null; // { accessToken, email, obtainedAt }
-
-export { DEFAULT_CLIENT_ID };
 
 export async function initAuth(clientId) {
   if (!clientId) throw new Error("falta Client ID");

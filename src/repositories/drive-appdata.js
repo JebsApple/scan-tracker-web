@@ -12,7 +12,7 @@ const UPLOAD_BASE = "https://www.googleapis.com/upload/drive/v3/files";
 
 async function authedFetch(url, options = {}) {
   const token = await getAccessToken();
-  const res = await fetch(url, { ...options, headers: { ...(options.headers || {}), Authorization: `Bearer ${token}` } });
+  const res = await fetch(url, { ...options, headers: { ...options.headers, Authorization: `Bearer ${token}` } });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     const err = new Error(`Drive API HTTP ${res.status}: ${body.slice(0, 200)}`);

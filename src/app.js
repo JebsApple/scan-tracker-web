@@ -1,8 +1,7 @@
-import { initAuth, trySilentLogin, DEFAULT_CLIENT_ID } from "./repositories/auth-facade.js";
+import { initAuth, trySilentLogin, isSignedIn, DEFAULT_CLIENT_ID } from "./repositories/auth-facade.js";
 import { S, save, onSave } from "./state/store.js";
 import { undo, redo } from "./state/history.js";
 import { isNative, requestBackgroundPermissions, pushMobileConfig } from "./mobile/capacitor-bridge.js";
-import { isSignedIn } from "./repositories/auth-facade.js";
 import { syncAll } from "./services/sync-service.js";
 import { etapasDe } from "./services/etapas-service.js";
 import { render, wireRenderEvents } from "./ui/render.js";

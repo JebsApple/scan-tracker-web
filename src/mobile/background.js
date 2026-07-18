@@ -1,33 +1,45 @@
 // Runner de Background Runner (Capacitor) — corre en un motor JS aislado,
 // SIN acceso a localStorage/DOM/módulos ES del resto de la app. Solo tiene
 // los globals que documenta el plugin: CapacitorKV, CapacitorNotifications,
-// fetch, addEventListener. Sin estado entre llamadas — todo lo persistente
-// vive en CapacitorKV.
+// fetch, addEventListener. Sin estado entre llamadas — cualquier dato
+// persistente vive en CapacitorKV.
 //
 // Solo monitorea Sheets PÚBLICOS (gviz, sin login) — este contexto no puede
 // abrir el popup de OAuth de Google, así que no hay forma de leer un Sheet
 // privado desde acá.
 
+// Consume el caracter en posición i estando dentro de comillas.
+// Devuelve la posición del último caracter consumido.
+function csvQuoted(txt, i, st) {
+  const c = txt[i];
+  if (c !== '"') { st.cur += c; return i; }
+  if (txt[i + 1] === '"') { st.cur += '"'; return i + 1; }
+  st.q = false;
+  return i;
+}
+
+// Consume el caracter en posición i fuera de comillas.
+// Devuelve la posición del último caracter consumido.
+function csvBare(txt, i, st, rows) {
+  const c = txt[i];
+  if (c === '"') { st.q = true; return i; }
+  if (c === ',') { st.row.push(st.cur); st.cur = ""; return i; }
+  if (c === '\n' || c === '\r') {
+    const skip = c === '\r' && txt[i + 1] === '\n' ? 1 : 0;
+    st.row.push(st.cur); rows.push(st.row); st.row = []; st.cur = "";
+    return i + skip;
+  }
+  st.cur += c;
+  return i;
+}
+
 function parseCSV(txt) {
   const rows = [];
-  let row = [], cur = "", q = false;
+  const st = { row: [], cur: "", q: false };
   for (let i = 0; i < txt.length; i++) {
-    const c = txt[i];
-    if (q) {
-      if (c === '"') {
-        if (txt[i + 1] === '"') { cur += '"'; i++; }
-        else q = false;
-      } else cur += c;
-    } else {
-      if (c === '"') q = true;
-      else if (c === ',') { row.push(cur); cur = ""; }
-      else if (c === '\n' || c === '\r') {
-        if (c === '\r' && txt[i + 1] === '\n') i++;
-        row.push(cur); rows.push(row); row = []; cur = "";
-      } else cur += c;
-    }
+    i = st.q ? csvQuoted(txt, i, st) : csvBare(txt, i, st, rows);
   }
-  if (cur || row.length) { row.push(cur); rows.push(row); }
+  if (st.cur || st.row.length) { st.row.push(st.cur); rows.push(st.row); }
   return rows;
 }
 
@@ -75,7 +87,12 @@ function gvizUrl(url) {
 function loadConfig() {
   const raw = CapacitorKV.get("mobileMonitorConfig").value;
   if (!raw) return { sheets: [], aliases: [] };
-  try { return JSON.parse(raw); } catch (e) { return { sheets: [], aliases: [] }; }
+  try {
+    return JSON.parse(raw);
+  } catch (e) {
+    console.warn("mobileMonitorConfig corrupto, se ignora:", e);
+    return { sheets: [], aliases: [] };
+  }
 }
 
 function esMio(who, aliases) {
@@ -121,7 +138,7 @@ addEventListener("checkDesignations", async (resolve, reject) => {
     const config = loadConfig();
     if (!config.sheets.length || !config.aliases.length) { resolve(); return; }
     const idCounterRaw = CapacitorKV.get("notifIdCounter").value;
-    const notifyIdRef = { n: idCounterRaw ? parseInt(idCounterRaw, 10) : 0 };
+    const notifyIdRef = { n: idCounterRaw ? Number.parseInt(idCounterRaw, 10) : 0 };
     for (const sheetUrl of config.sheets) {
       await checkOneSheet(sheetUrl, config.aliases, notifyIdRef);
     }
@@ -138,8 +155,8 @@ addEventListener("checkDesignations", async (resolve, reject) => {
 addEventListener("updateConfig", (resolve, reject, args) => {
   try {
     CapacitorKV.set("mobileMonitorConfig", JSON.stringify({
-      sheets: (args && args.sheets) || [],
-      aliases: (args && args.aliases) || [],
+      sheets: args?.sheets || [],
+      aliases: args?.aliases || [],
     }));
     resolve();
   } catch (e) {

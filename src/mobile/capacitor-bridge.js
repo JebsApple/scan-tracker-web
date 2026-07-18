@@ -1,6 +1,6 @@
 // Puente hacia los plugins nativos de Capacitor. Solo existe `window.Capacitor`
-// cuando la app corre empaquetada (Android) — en el browser normal, todo acá
-// queda en no-op sin romper nada. No se importa el paquete npm de Capacitor
+// cuando la app corre empaquetada (Android) — en el browser normal, cada
+// export acá queda en no-op sin romper nada. No se importa el paquete npm de Capacitor
 // directamente (el proyecto no tiene bundler): el runtime nativo inyecta
 // `window.Capacitor.Plugins.*` antes de cargar esta página.
 const LABEL = "cl.jebsapple.scantracker.check";
