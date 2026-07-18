@@ -12,9 +12,9 @@ const BASE = "https://www.googleapis.com/drive/v3/files";
 export async function listSharedSheets() {
   const token = await getAccessToken();
   const q = encodeURIComponent(
-    "sharedWithMe=true and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false",
+    "mimeType='application/vnd.google-apps.spreadsheet' and trashed=false",
   );
-  const url = `${BASE}?q=${q}&fields=files(id,name)&orderBy=sharedWithMeTime desc&pageSize=50`;
+  const url = `${BASE}?q=${q}&fields=files(id,name)&orderBy=modifiedTime desc&pageSize=100`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) {
     const body = await res.text().catch(() => "");

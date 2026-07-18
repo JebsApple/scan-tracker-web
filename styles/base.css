@@ -3,7 +3,7 @@ body{background:var(--bg);color:var(--txt);font-family:var(--body);font-size:14p
 button{font-family:var(--body);cursor:pointer;border:none;background:none;color:inherit}
 input,select{font-family:var(--body);background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:6px 9px;font-size:13px;outline:none}
 input:focus,select:focus{border-color:var(--red)}
-::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}body{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
 .btn{padding:7px 13px;border-radius:6px;border:1px solid var(--line);font-size:13px;color:var(--txt);transition:.15s}
 .btn:hover{border-color:var(--red)}
 .btn.red{background:var(--red);border-color:var(--red);font-weight:600}

@@ -23,7 +23,7 @@ export const etapasDe = (sr) => (sr && sr.etapaDefs) || ETAPAS;
 // cantidad de etapas mientras respeten ese patrón.
 export function detectEtapaDefs(headerRow) {
   const defs = [];
-  for (let i = 2, k = 0; i + 1 < headerRow.length + 1 && k < ETAPA_KEYS.length; i += 2, k++) {
+  for (let i = 2, k = 0; i + 1 < headerRow.length && k < ETAPA_KEYS.length; i += 2, k++) {
     const label = String(headerRow[i] || "").trim();
     if (!label) break;
     defs.push([ETAPA_KEYS[k], label]);

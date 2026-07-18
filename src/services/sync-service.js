@@ -1,6 +1,6 @@
 import { S, save, logEvent, esMio } from "../state/store.js";
 import { readSheet, writeCell, appendRow, deleteRow, fetchPublicCsv } from "../repositories/sheets-repository.js";
-import { isSignedIn } from "../repositories/auth.js";
+import { isSignedIn } from "../repositories/auth-facade.js";
 import { csvToChapters, etapasDe } from "./etapas-service.js";
 import { parseCSV, friendlyError, norm } from "../utils.js";
 import { toast } from "../ui/toast.js";

@@ -102,11 +102,15 @@ export function render() {
     })
     .join("");
 
+  const tblWrap = ct.querySelector("#tblWrap");
+  const scrollPos = tblWrap ? tblWrap.scrollTop : 0;
   ct.innerHTML =
     head +
     `<div id="tblWrap"><table><thead><tr>
     <th>Cap</th><th>Prioridad</th>${etapas.map((e) => `<th>${e[1]}</th>`).join("")}<th></th>
   </tr></thead><tbody>${rows || `<tr><td colspan="${etapas.length + 3}" style="color:var(--mut);padding:20px">Nada que mostrar con estos filtros.</td></tr>`}</tbody></table></div>`;
+  const newTblWrap = ct.querySelector("#tblWrap");
+  if (newTblWrap) newTblWrap.scrollTop = scrollPos;
 
   paintUndoRedo();
 }

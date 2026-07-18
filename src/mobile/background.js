@@ -46,7 +46,7 @@ function parseCSV(txt) {
 
 function detectEtapaDefs(headerRow) {
   const defs = [];
-  for (let i = 2, k = 0; i + 1 < headerRow.length + 1 && k < 5; i += 2, k++) {
+  for (let i = 2, k = 0; i + 1 < headerRow.length && k < 5; i += 2, k++) {
     const label = String(headerRow[i] || "").trim();
     if (!label) break;
     defs.push(label);
@@ -91,7 +91,7 @@ function loadConfig() {
   try {
     return JSON.parse(raw);
   } catch (e) {
-    console.warn("mobileMonitorConfig corrupto, se ignora:", e);
+    // mobileMonitorConfig corrupto, se ignora
     return { sheets: [], aliases: [] };
   }
 }
