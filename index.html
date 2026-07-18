@@ -9,6 +9,11 @@
 <link rel="stylesheet" href="styles/tokens.css">
 <link rel="stylesheet" href="styles/base.css">
 <link rel="stylesheet" href="styles/components.css">
+<link rel="stylesheet" href="styles/auth.css">
+<!-- Firebase compat SDK (auth email/password + Firestore para datos de usuario) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
@@ -110,6 +115,9 @@
   </symbol>
 </svg>
 
+<!-- Auth overlay (email/password login) — se muestra cuando no hay sesión -->
+<div id="authOverlay"></div>
+
 <div id="top">
   <button class="btn" id="bDrawer" title="Series"><svg class="icon"><use href="#i-menu"/></svg></button>
   <div id="logo"><span class="logo-s">S</span><span class="logo-can">CAN</span><span class="logo-tracker">TRACKER</span></div>
@@ -149,6 +157,7 @@
     <button class="btn" id="bDash"><svg class="icon"><use href="#i-layout-dashboard"/></svg> Dashboard</button>
     <button class="btn" id="bHist"><svg class="icon"><use href="#i-history"/></svg> Mi historial</button>
     <button class="btn" id="bCfg"><svg class="icon"><use href="#i-settings"/></svg> Mis nombres</button>
+    <a href="privacy.html" target="_blank" class="btn" style="font-size:12px;text-decoration:none">Política de privacidad</a>
   </div>
 </div>
 

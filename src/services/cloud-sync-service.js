@@ -6,6 +6,9 @@
 import { S, save, logEvent } from "../state/store.js";
 import { downloadSyncData, uploadSyncData } from "../repositories/drive-appdata.js";
 import { friendlyError, uid } from "../utils.js";
+import { getCurrentUser } from "../repositories/auth-email.js";
+import { saveUserData as saveFS, loadUserData as loadFS } from "../repositories/user-data.js";
+import { isSignedIn } from "../repositories/auth-facade.js";
 
 function syncableSeries() {
   return S.series.filter((s) => s.sheetUrl).map((s) => ({ name: s.name, sheetUrl: s.sheetUrl }));
@@ -52,4 +55,69 @@ export async function pullCloudState() {
 
   if (added) save();
   return added;
+}
+
+// ── Firestore sync (usuarios con cuenta email/password) ────────────
+
+function isEmailUser() {
+  const u = getCurrentUser();
+  return !!u && !!u.emailVerified;
+}
+
+function fbUid() {
+  const u = getCurrentUser();
+  return u ? u.uid : null;
+}
+
+export async function pushFirestoreState() {
+  const id = fbUid();
+  if (!id) return;
+  try {
+    await saveFS(id, { series: syncableSeries(), aliases: S.aliases });
+  } catch (e) {
+    logEvent("Sync Firestore fallido", friendlyError(e));
+  }
+}
+
+/** Pull desde Firestore. Misma lógica merge que pullCloudState. */
+export async function pullFirestoreState() {
+  const id = fbUid();
+  if (!id) return 0;
+  let remote;
+  try {
+    remote = await loadFS(id);
+  } catch (e) {
+    logEvent("Sync Firestore fallido", friendlyError(e));
+    return 0;
+  }
+  if (!remote) return 0;
+
+  const localUrls = new Set(S.series.filter((s) => s.sheetUrl).map((s) => s.sheetUrl));
+  let added = 0;
+  (remote.series || []).forEach((rs) => {
+    if (!rs.sheetUrl || localUrls.has(rs.sheetUrl)) return;
+    S.series.push({ id: uid(), name: rs.name, sheetUrl: rs.sheetUrl, chapters: [], ocultos: {} });
+    localUrls.add(rs.sheetUrl);
+    added++;
+  });
+
+  const localAN = new Set(S.aliases.map((a) => a.trim().toLowerCase()));
+  (remote.aliases || []).forEach((a) => {
+    const norm = a.trim().toLowerCase();
+    if (norm && !localAN.has(norm)) {
+      S.aliases.push(a);
+      localAN.add(norm);
+    }
+  });
+
+  if (added) save();
+  return added;
+}
+
+/** Helper: empuja datos al backend correcto (Drive o Firestore)
+ *  según el tipo de usuario activo. Llamar en vez de pushCloudState()
+ *  desde UI para que funcione para todos los usuarios. */
+export function pushUserData() {
+  if (isSignedIn()) pushCloudState();
+  pushFirestoreState();
 }

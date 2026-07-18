@@ -9,7 +9,7 @@ import {
 } from "../repositories/auth-facade.js";
 import { listSheetTabs, listSharedSheets } from "../repositories/sheets-repository.js";
 import { fetchSheet, checkDesignations, syncAll } from "../services/sync-service.js";
-import { pullCloudState, pushCloudState } from "../services/cloud-sync-service.js";
+import { pullCloudState, pushCloudState, pushUserData } from "../services/cloud-sync-service.js";
 import { etapasDe, csvToChapters, nuevoCap } from "../services/etapas-service.js";
 import { esOculto, capCompleto, esperandoGlobal, cargaPorPersona } from "../services/stats-service.js";
 import { PRIOS, prioClass } from "../services/filters-service.js";
@@ -108,7 +108,7 @@ export function modalAliases() {
     save();
     draw();
     render();
-    if (isSignedIn()) pushCloudState();
+    pushUserData();
   };
   document.getElementById("aliasAdd").onclick = () => {
     const v = document.getElementById("aliasIn").value;
@@ -119,7 +119,7 @@ export function modalAliases() {
         if (!esMio(a)) S.aliases.push(a);
       });
     document.getElementById("aliasIn").value = "";
-    if (isSignedIn()) pushCloudState();
+    pushUserData();
     save();
     draw();
     render();
@@ -415,6 +415,6 @@ export function modalSerie() {
     save();
     render();
     closeM();
-    if (sr.sheetUrl) pushCloudState();
+    if (sr.sheetUrl) pushUserData();
   };
 }

@@ -1,5 +1,6 @@
 import { initAuth, trySilentLogin, isSignedIn, DEFAULT_CLIENT_ID } from "./repositories/auth-facade.js";
 import { S, save, onSave } from "./state/store.js";
+import { uid } from "./utils.js";
 import { undo, redo } from "./state/history.js";
 import { isNative, requestBackgroundPermissions, pushMobileConfig } from "./mobile/capacitor-bridge.js";
 import { syncAll } from "./services/sync-service.js";
@@ -17,22 +18,57 @@ import {
   refreshGoogleSession,
   connectGoogle,
 } from "./ui/modals.js";
-import { pullCloudState } from "./services/cloud-sync-service.js";
+import { pullCloudState, pullFirestoreState, pushFirestoreState } from "./services/cloud-sync-service.js";
 import { isChileno, toggleChileno } from "./chileno.js";
+import { onAuthChange, getCurrentUser } from "./repositories/auth-email.js";
+import { loadUserData, saveUserData } from "./repositories/user-data.js";
+import { showLoginScreen, hideLoginScreen } from "./ui/login-screen.js";
+import { TESTER_EMAILS } from "./repositories/firebase-config.js";
+
+// ── Auth: login screen + Firebase Auth listener ────────────────────
+showLoginScreen();
 
 try {
   await initAuth(DEFAULT_CLIENT_ID);
 } catch (e) {}
 
-// Reintento silencioso: si ya diste consentimiento antes, no hace falta
-// tocar "Iniciar sesión" de nuevo en cada recarga. Falla en silencio si el
-// navegador bloquea el intento o ya no hay sesión activa en Google.
+// Firebase Auth (email/password) — se ejecuta cuando cambia el estado.
+let fbUserReady = false;
+onAuthChange(async (user) => {
+  if (user && user.emailVerified) {
+    const userData = await loadUserData(user.uid);
+    if (userData) {
+      // Merge Firestore → S (misma lógica que pullCloudState pero con datos del doc)
+      const localUrls = new Set(S.series.filter((s) => s.sheetUrl).map((s) => s.sheetUrl));
+      (userData.series || []).forEach((rs) => {
+        if (!rs.sheetUrl || localUrls.has(rs.sheetUrl)) return;
+        S.series.push({ id: uid(), name: rs.name, sheetUrl: rs.sheetUrl, chapters: [], ocultos: {} });
+        localUrls.add(rs.sheetUrl);
+      });
+      const localAN = new Set(S.aliases.map((a) => a.trim().toLowerCase()));
+      (userData.aliases || []).forEach((a) => {
+        const n = a.trim().toLowerCase();
+        if (n && !localAN.has(n)) { S.aliases.push(a); localAN.add(n); }
+      });
+      save();
+    }
+    hideLoginScreen();
+    fbUserReady = true;
+    await syncAll(false);
+    render();
+  } else if (user && !user.emailVerified) {
+    // Mostrará el overlay de verificación (ya manejado por login-screen.js)
+  }
+});
+
+// GIS silent login (para testers con Google OAuth)
 trySilentLogin()
   .then(async () => {
     await refreshGoogleSession();
     await pullCloudState();
     await syncAll(false);
     render();
+    if (!fbUserReady) hideLoginScreen();
   })
   .catch(() => {});
 

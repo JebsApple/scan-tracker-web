@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scan Tracker — Política de Privacidad</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700&family=Archivo+Narrow:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0c0b0d;--panel:#151318;--txt:#e8e6ec;--mut:#8b8794;--red:#e0322f;--line:#2a2730}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--txt);font-family:'Archivo',sans-serif;font-size:14px;line-height:1.7;padding:40px 20px;display:flex;justify-content:center}
+  .container{max-width:720px;width:100%}
+  h1{font-family:'Archivo Narrow',sans-serif;font-size:28px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+  h1 span{color:var(--red)}
+  .updated{font-size:12px;color:var(--mut);margin-bottom:32px}
+  h2{font-family:'Archivo Narrow',sans-serif;font-size:16px;text-transform:uppercase;letter-spacing:.08em;margin:28px 0 10px;color:var(--red)}
+  p,li{font-size:14px;color:var(--txt);margin-bottom:10px}
+  ul{padding-left:20px}
+  li{margin-bottom:6px}
+  a{color:var(--red)}
+  .back{display:inline-block;margin-top:40px;font-size:13px;color:var(--mut);text-decoration:none}
+  .back:hover{color:var(--txt)}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Scan<span>Tracker</span> — Política de Privacidad</h1>
+  <p class="updated">Última actualización: 18 de julio de 2026</p>
+
+  <p>Scan Tracker es una aplicación web gratuita diseñada para equipos de scanlation. Esta política describe cómo manejamos los datos de los usuarios.</p>
+
+  <h2>Datos que recopilamos</h2>
+  <ul>
+    <li><strong>Correo electrónico y contraseña:</strong> Se utilizan exclusivamente para autenticar tu cuenta. La contraseña se almacena de forma segura mediante Firebase Authentication (hashing bcrypt). No tenemos acceso a tu contraseña en texto plano.</li>
+    <li><strong>Progreso de capítulos:</strong> El estado de las etapas de traducción, limpieza, etc. se almacena en la hoja de Google Sheets que el usuario proporciona. Scan Tracker no almacena estos datos en servidores propios.</li>
+    <li><strong>URLs de hojas de Google Sheets:</strong> Se almacenan en tu cuenta para sincronizar entre dispositivos.</li>
+    <li><strong>Alias:</strong> Nombres con los que apareces en las hojas. Se almacenan en tu cuenta para filtrado personal.</li>
+  </ul>
+
+  <h2>¿Cómo usamos tus datos?</h2>
+  <ul>
+    <li>Tus datos de hojas y alias se almacenan en Google Firestore (base de datos en la nube) vinculados a tu cuenta.</li>
+    <li>No compartimos, vendemos ni analizamos tus datos con terceros.</li>
+    <li>No utilizamos cookies de rastreo ni herramientas de analytics.</li>
+    <li>No enviamos correos comerciales ni newsletters.</li>
+  </ul>
+
+  <h2>Acceso a Google Sheets y Google Drive</h2>
+  <ul>
+    <li>Scan Tracker se conecta a Google Sheets y Google Drive únicamente cuando el usuario autoriza expresamente mediante OAuth.</li>
+    <li>Los permisos solicitados son: lectura/escritura de hojas de cálculo (<code>spreadsheets</code>), lectura de metadatos de archivos (<code>drive.metadata.readonly</code>), y acceso a la carpeta de datos de la aplicación (<code>drive.appdata</code>).</li>
+    <li>Estos permisos se usan exclusivamente para sincronizar el progreso de capítulos entre tu hoja de Google Sheets y la aplicación.</li>
+    <li>Puedes revocar el acceso en cualquier momento desde tu <a href="https://myaccount.google.com/permissions">Configuración de cuentas de Google</a>.</li>
+  </ul>
+
+  <h2>Almacenamiento local</h2>
+  <ul>
+    <li>Scan Tracker utiliza localStorage del navegador para cachear datos y funcionar sin conexión.</li>
+    <li>Los datos locales se borran al cerrar sesión.</li>
+    <li>Los datos no se sincronizan automáticamente con servidores externos sin tu autorización explícita.</li>
+  </ul>
+
+  <h2>Seguridad</h2>
+  <ul>
+    <li>La autenticación se maneja a través de Firebase Authentication, un servicio de Google con estándares de seguridad industriales.</li>
+    <li>Las conexiones se realizan mediante HTTPS.</li>
+    <li>No almacenamos tokens de acceso a Google de forma permanente.</li>
+  </ul>
+
+  <h2>Menores de edad</h2>
+  <p>Scan Tracker no está dirigido a menores de 13 años. No recopilamos conscientemente información de menores.</p>
+
+  <h2>Cambios en esta política</h2>
+  <p>Podemos actualizar esta política ocasionalmente. Los cambios se publicarán en esta página con la fecha de actualización.</p>
+
+  <h2>Contacto</h2>
+  <p>Si tenés preguntas sobre esta política, podés contactarnos a través de nuestro <a href="https://github.com/JebsApple/scan-tracker-web/issues">repositorio en GitHub</a>.</p>
+
+  <a class="back" href="/">← Volver a Scan Tracker</a>
+</div>
+</body>
+</html>

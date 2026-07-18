@@ -15,7 +15,7 @@ import { pushCell, pushNewRow, pushDelRow, COLW } from "../services/sync-service
 import { esc } from "../utils.js";
 import { icon } from "./icons.js";
 import { confirmModal } from "./modals.js";
-import { pushCloudState } from "../services/cloud-sync-service.js";
+import { pushUserData } from "../services/cloud-sync-service.js";
 import { isSignedIn } from "../repositories/auth-facade.js";
 import { chilenize } from "../chileno.js";
 
@@ -209,7 +209,7 @@ function delSerie(s) {
       if (S.sel === s) S.sel = S.series[0]?.id || null;
       save();
       render();
-      if (sr.sheetUrl && isSignedIn()) pushCloudState();
+      if (sr.sheetUrl) pushUserData();
     },
   });
 }
