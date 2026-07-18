@@ -36,8 +36,9 @@ function csvBare(txt, i, st, rows) {
 function parseCSV(txt) {
   const rows = [];
   const st = { row: [], cur: "", q: false };
-  for (let i = 0; i < txt.length; i++) {
-    i = st.q ? csvQuoted(txt, i, st) : csvBare(txt, i, st, rows);
+  let i = 0;
+  while (i < txt.length) {
+    i = (st.q ? csvQuoted(txt, i, st) : csvBare(txt, i, st, rows)) + 1;
   }
   if (st.cur || st.row.length) { st.row.push(st.cur); rows.push(st.row); }
   return rows;
