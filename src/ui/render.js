@@ -17,6 +17,7 @@ import { icon } from "./icons.js";
 import { confirmModal } from "./modals.js";
 import { pushCloudState } from "../services/cloud-sync-service.js";
 import { isSignedIn } from "../repositories/auth-facade.js";
+import { chilenize } from "../chileno.js";
 
 export function render() {
   // sidebar
@@ -59,6 +60,7 @@ export function render() {
   if (!sr) {
     ct.innerHTML = `<div id="empty"><div class="big">Scan<span style="color:var(--red)">Tracker</span></div><div>Selecciona o crea una serie para empezar.</div></div>`;
     paintUndoRedo();
+    chilenize();
     return;
   }
 
@@ -113,6 +115,7 @@ export function render() {
   if (newTblWrap) newTblWrap.scrollTop = scrollPos;
 
   paintUndoRedo();
+  chilenize();
 }
 
 function paintUndoRedo() {

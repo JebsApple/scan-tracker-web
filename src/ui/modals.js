@@ -91,7 +91,7 @@ export async function connectGoogle() {
 export function modalAliases() {
   openM(`<h3>Mis nombres</h3>
   <div class="fld"><label>Alias con los que apareces en las hojas</label>
-  <div style="display:flex;gap:8px"><input id="aliasIn" placeholder="manzana, notch, apple..."><button class="btn red" id="aliasAdd">Agregar</button></div>
+  <div style="display:flex;gap:8px"><input id="aliasIn" placeholder="ingresa tu alias"><button class="btn red" id="aliasAdd">Agregar</button></div>
   <div class="hint">Puedes pegar varios separados por coma. Se usan para el filtro "Mis tareas" (no distingue mayúsculas).</div>
   <div class="tagrow" id="aliasTags"></div></div>
   <div class="mrow"><button class="btn" id="aliasClose">Cerrar</button></div>`);
@@ -256,7 +256,7 @@ export function modalHistorial() {
     })
     .join("");
   openM(`<h3>Mi historial</h3>
-  <div class="fld"><div class="hint">Capítulos que completaste vos, más recientes primero. "Duración" es desde que se te asignó hasta que marcaste listo.</div></div>
+  <div class="fld"><div class="hint">Capítulos que completaste, más recientes primero. "Duración" es desde que se te asignó hasta que marcaste listo.</div></div>
   <table class="dashTbl"><thead><tr><th>Fecha</th><th>Serie</th><th>Cap</th><th>Etapa</th><th>Duración</th></tr></thead>
   <tbody>${rows || `<tr><td colspan="5" style="color:var(--mut)">Todavía no completaste nada.</td></tr>`}</tbody></table>
   <div class="mrow"><button class="btn" id="histClose">Cerrar</button></div>`);
@@ -289,7 +289,7 @@ export function modalMisPendientes() {
     )
     .join("");
   openM(`<h3>Mis pendientes</h3>
-  <div class="fld"><div class="hint">Capítulos de TODAS tus series donde tenés una etapa asignada e incompleta.</div></div>
+  <div class="fld"><div class="hint">Capítulos de TODAS tus series donde tienes una etapa asignada e incompleta.</div></div>
   <table class="dashTbl"><thead><tr><th>Serie</th><th>Cap</th><th>Etapa</th><th>Prioridad</th><th></th></tr></thead>
   <tbody>${rows || `<tr><td colspan="5" style="color:var(--mut)">Sin pendientes — al día.</td></tr>`}</tbody></table>
   <div class="mrow"><button class="btn" id="pendClose">Cerrar</button></div>`);
@@ -304,7 +304,7 @@ let pendingFileCSV = null;
 
 export function modalSerie() {
   openM(`<h3>Nueva serie</h3>
-  <div class="fld"><label>Nombre</label><input id="snName" placeholder="Teto x Egen"></div>
+  <div class="fld"><label>Nombre</label><input id="snName" placeholder="Nombre de la serie"></div>
   <div class="fld"><label>Fuente</label><select id="snSrc">
     <option value="manual">Manual (vacía)</option>
     <option value="gsheet">Google Sheets (vinculada, se sincroniza)</option>
@@ -313,7 +313,7 @@ export function modalSerie() {
   <div class="fld" id="snUrlF" style="display:none"><label>URL de la hoja</label>
     <div style="display:flex;gap:8px"><button class="btn" id="snDriveBtn" type="button">Elegir de "Compartidos conmigo"</button></div>
     <select id="snDriveSel" style="display:none;margin-top:8px"></select>
-    <div style="display:flex;gap:8px;margin-top:8px"><input id="snUrl" placeholder="...o pegá la URL directamente"><button class="btn" id="snTabsBtn" type="button">Elegir pestaña</button></div>
+    <div style="display:flex;gap:8px;margin-top:8px"><input id="snUrl" placeholder="...o pegue la URL directamente"><button class="btn" id="snTabsBtn" type="button">Elegir pestaña</button></div>
     <select id="snTabsSel" style="display:none;margin-top:8px"></select>
     <div class="hint">Con sesión de Google iniciada funciona con hojas <b>privadas</b> (las que tu cuenta puede ver) y los cambios se escriben de vuelta. Sin sesión, la hoja debe ser pública y agregar #gid= a mano si no es la primera pestaña. Se re-sincroniza cada 5 min y con ${icon("refresh-cw")}.</div></div>
   <div class="fld" id="snPasteF" style="display:none"><label>CSV (con encabezado Capítulos,Prioridad,TRADUCCIÓN,LISTO,...)</label><textarea id="snPaste"></textarea></div>
@@ -328,14 +328,14 @@ export function modalSerie() {
   };
   document.getElementById("snCancel").onclick = closeM;
   document.getElementById("snDriveBtn").onclick = async () => {
-    if (!isSignedIn()) return toast("Iniciá sesión con Google primero (botón 'Conectar Google')");
+    if (!isSignedIn()) return toast("Inicie sesión con Google primero (botón 'Conectar Google')");
     const btn = document.getElementById("snDriveBtn");
     btn.textContent = "Cargando...";
     btn.disabled = true;
     try {
       const files = await listSharedSheets();
       const sel = document.getElementById("snDriveSel");
-      sel.innerHTML = `<option value="">— Elegí una hoja —</option>` + files.map((f) => `<option value="${f.id}">${esc(f.name)}</option>`).join("");
+      sel.innerHTML = `<option value="">— Seleccione una hoja —</option>` + files.map((f) => `<option value="${f.id}">${esc(f.name)}</option>`).join("");
       sel.style.display = "";
       sel.onchange = () => {
         if (!sel.value) return;
@@ -351,8 +351,8 @@ export function modalSerie() {
   };
   document.getElementById("snTabsBtn").onclick = async () => {
     const url = document.getElementById("snUrl").value.trim();
-    if (!url) return toast("Pegá la URL de la hoja primero");
-    if (!isSignedIn()) return toast("Iniciá sesión con Google para listar las pestañas de una hoja privada");
+    if (!url) return toast("Pegue la URL de la hoja primero");
+    if (!isSignedIn()) return toast("Inicie sesión con Google para listar las pestañas de una hoja privada");
     const btn = document.getElementById("snTabsBtn");
     btn.textContent = "Cargando...";
     btn.disabled = true;
@@ -387,7 +387,7 @@ export function modalSerie() {
     const name = document.getElementById("snName").value.trim();
     if (!name) return toast("Falta el nombre");
     const v = src.value;
-    if (v === "file" && !pendingFileCSV) return toast("Elegí un archivo CSV primero");
+    if (v === "file" && !pendingFileCSV) return toast("Seleccione un archivo CSV primero");
     const sr = { id: uid(), name, sheetUrl: null, chapters: [], ocultos: {} };
     if (v === "manual") {
       const n = +document.getElementById("snN").value || 0;

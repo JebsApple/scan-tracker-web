@@ -17,6 +17,8 @@ import {
   refreshGoogleSession,
   connectGoogle,
 } from "./ui/modals.js";
+import { isChileno, toggleChileno } from "./chileno.js";
+import { toast } from "./ui/toast.js";
 
 try {
   await initAuth(DEFAULT_CLIENT_ID);
@@ -109,8 +111,17 @@ document.getElementById("bExport").onclick = () => {
   a.click();
 };
 
+// Easter egg: triple-click en el logo activa modo chileno
+document.getElementById("logo").addEventListener("click", () => {
+  const on = toggleChileno();
+  document.body.classList.toggle("chileno", on);
+  toast(on ? "Modo chileno activado po 🇨🇱" : "Modo chileno desactivado nojada");
+  render();
+});
+
 render();
 paintG();
+if (isChileno()) document.body.classList.add("chileno");
 if (!S.aliases.length && !S.series.length) setTimeout(modalAliases, 400);
 
 // Solo hace algo dentro de la app Android empaquetada (window.Capacitor no
