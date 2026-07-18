@@ -141,7 +141,7 @@ function wireForm() {
 async function handleGoogleLogin() {
   const { connectGoogle } = await import("./modals.js");
   const ok = await connectGoogle();
-  if (ok) hide();
+  if (ok) hideLoginScreen();
 }
 
 // ── Show / Hide ────────────────────────────────────────────────────
