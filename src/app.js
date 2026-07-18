@@ -17,6 +17,7 @@ import {
   refreshGoogleSession,
   connectGoogle,
 } from "./ui/modals.js";
+import { pullCloudState } from "./services/cloud-sync-service.js";
 import { isChileno, toggleChileno } from "./chileno.js";
 
 try {
@@ -29,6 +30,7 @@ try {
 trySilentLogin()
   .then(async () => {
     await refreshGoogleSession();
+    await pullCloudState();
     await syncAll(false);
     render();
   })
