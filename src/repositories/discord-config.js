@@ -6,12 +6,12 @@
 // client_secret acá — el flujo implícito no lo usa, y ponerlo en una página
 // estática sería filtrarlo.
 
-// developers.discord.com → tu aplicación → OAuth2 → Client ID
-export const DISCORD_CLIENT_ID = "";
+// developers.discord.com → aplicación "ScanTracker" → OAuth2 → Client ID
+export const DISCORD_CLIENT_ID = "1528633787057967235";
 
-// ID del servidor del scan (Discord → Ajustes avanzados → Modo desarrollador,
-// después click derecho sobre el servidor → Copiar ID del servidor)
-export const DISCORD_GUILD_ID = "";
+// Servidor "Raven Campamento". Sale en la URL al abrirlo:
+// discord.com/channels/<guild_id>/<channel_id>
+export const DISCORD_GUILD_ID = "1437578818725351576";
 
 // Mientras falte cualquiera de los dos, la app esconde todo lo de Discord y
 // sigue funcionando como antes (series pegadas a mano).
