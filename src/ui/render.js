@@ -109,7 +109,7 @@ export function render() {
   ct.innerHTML =
     head +
     `<div id="tblWrap"><table><thead><tr>
-    <th>Cap</th><th>Prioridad</th>${etapas.map((e) => `<th>${e[1]}</th>`).join("")}<th></th>
+    <th>Cap</th><th>Prioridad</th>${etapas.map((e) => `<th>${esc(e[1])}</th>`).join("")}<th></th>
   </tr></thead><tbody>${rows || `<tr><td colspan="${etapas.length + 3}" style="color:var(--mut);padding:20px">Nada que mostrar con estos filtros.</td></tr>`}</tbody></table></div>`;
   const newTblWrap = ct.querySelector("#tblWrap");
   if (newTblWrap) newTblWrap.scrollTop = scrollPos;
@@ -132,10 +132,17 @@ export function selSerie(id) {
   render();
 }
 
-function tg(s, c, k) {
+// Restaura una clave de S.startedAt a lo que era antes (undefined = no existía).
+function restoreStarted(startKey, prev) {
+  if (prev === undefined) delete S.startedAt[startKey];
+  else S.startedAt[startKey] = prev;
+}
+
+async function tg(s, c, k) {
   const sr = S.series.find((x) => x.id === s), ch = sr.chapters.find((x) => x.id === c);
-  ch[k].done = !ch[k].done;
   const startKey = `${sr.id}|${ch.num}|${k}`;
+  const prev = { done: ch[k].done, started: S.startedAt[startKey], histLen: S.historial.length };
+  ch[k].done = !ch[k].done;
   if (ch[k].done && esMio(ch[k].who)) {
     const t0 = S.startedAt[startKey];
     S.historial.unshift({
@@ -151,29 +158,43 @@ function tg(s, c, k) {
   }
   save();
   render();
-  pushCell(sr, ch, COLW[k][1], ch[k].done ? "TRUE" : "FALSE");
+  if (await pushCell(sr, ch, COLW[k][1], ch[k].done ? "TRUE" : "FALSE")) return;
+  ch[k].done = prev.done;
+  restoreStarted(startKey, prev.started);
+  S.historial.splice(0, S.historial.length - prev.histLen);
+  save();
+  render();
 }
 
-function setWho(s, c, k, v) {
+async function setWho(s, c, k, v) {
   const sr = S.series.find((x) => x.id === s), ch = sr.chapters.find((x) => x.id === c);
   const startKey = `${sr.id}|${ch.num}|${k}`;
+  const prev = { who: ch[k].who, started: S.startedAt[startKey] };
   const wasMine = esMio(ch[k].who);
   ch[k].who = v.trim();
   if (!wasMine && esMio(ch[k].who) && !ch[k].done) S.startedAt[startKey] = Date.now();
   save();
   render();
-  pushCell(sr, ch, COLW[k][0], ch[k].who);
+  if (await pushCell(sr, ch, COLW[k][0], ch[k].who)) return;
+  ch[k].who = prev.who;
+  restoreStarted(startKey, prev.started);
+  save();
+  render();
 }
 
-function cyclePrio(s, c) {
+async function cyclePrio(s, c) {
   const sr = S.series.find((x) => x.id === s), ch = sr.chapters.find((x) => x.id === c);
+  const prevPrio = ch.prio;
   ch.prio = PRIOS[(PRIOS.indexOf(ch.prio) + 1) % PRIOS.length];
   save();
   render();
-  pushCell(sr, ch, "B", ch.prio);
+  if (await pushCell(sr, ch, "B", ch.prio)) return;
+  ch.prio = prevPrio;
+  save();
+  render();
 }
 
-function addCap(s) {
+async function addCap(s) {
   const sr = S.series.find((x) => x.id === s);
   const last = sr.chapters.length ? sr.chapters[sr.chapters.length - 1].num : "0";
   const n = isNaN(+last) ? String(sr.chapters.length + 1) : String(+last + 1);
@@ -181,20 +202,27 @@ function addCap(s) {
   sr.chapters.push(ch);
   save();
   render();
-  pushNewRow(sr, ch);
+  if (await pushNewRow(sr, ch)) return;
+  sr.chapters = sr.chapters.filter((x) => x.id !== ch.id);
+  save();
+  render();
 }
 
 function delCap(s, c) {
   const sr = S.series.find((x) => x.id === s);
   const ch = sr.chapters.find((x) => x.id === c);
+  const idx = sr.chapters.indexOf(ch);
   confirmModal({
     title: "Eliminar capítulo",
     body: `¿Eliminar el capítulo ${esc(ch.num)}?` + (sr.api ? " También se borra la fila en la hoja de Google." : ""),
-    onConfirm: () => {
+    onConfirm: async () => {
       sr.chapters = sr.chapters.filter((x) => x.id !== c);
       save();
       render();
-      pushDelRow(sr, ch);
+      if (await pushDelRow(sr, ch)) return;
+      sr.chapters.splice(idx, 0, ch);
+      save();
+      render();
     },
   });
 }
@@ -203,7 +231,7 @@ function delSerie(s) {
   const sr = S.series.find((x) => x.id === s);
   confirmModal({
     title: "Eliminar serie",
-    body: `Se deja de trackear "${esc(sr.name)}" acá — el Sheet vinculado no se toca, los datos siguen ahí. Podés volver a agregarla pegando la URL de nuevo.`,
+    body: `Se deja de trackear "${esc(sr.name)}" aquí — el Sheet vinculado no se toca, los datos siguen ahí. Puedes volver a agregarla pegando la URL de nuevo.`,
     onConfirm: () => {
       S.series = S.series.filter((x) => x.id !== s);
       if (S.sel === s) S.sel = S.series[0]?.id || null;
