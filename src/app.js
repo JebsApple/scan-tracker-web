@@ -103,7 +103,14 @@ async function descubrirSeriesDeDiscord() {
   }
 }
 
-setInterval(() => syncAll(false).then(render), 5 * 60 * 1000); // auto-sync cada 5 min
+// Auto-sync cada 5 min. Los roles se releen en cada vuelta, no solo al abrir
+// la app: cuando un líder mete a alguien al rol de la serie en Discord, esa
+// persona ve la serie aparecer sin recargar ni volver a entrar.
+setInterval(async () => {
+  await descubrirSeriesDeDiscord();
+  await syncAll(false);
+  render();
+}, 5 * 60 * 1000);
 
 wireRenderEvents();
 
