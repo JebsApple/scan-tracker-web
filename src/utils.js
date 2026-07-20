@@ -21,10 +21,10 @@ export function fmtDur(ms) {
 // no trae `.status` estructurado, se extrae del prefijo "HTTP <code>".
 export function friendlyError(e) {
   const status = e?.status ?? Number((String(e?.message || "").match(/HTTP (\d+)/) || [])[1]);
-  if (status === 401) return "Sesión de Google vencida — reconectá en 'Conectar Google'";
-  if (status === 403) return "Sin permiso para esta hoja — revisá que tu cuenta de Google tenga acceso";
-  if (status === 404) return "Hoja no encontrada — revisá la URL (¿la borraron o cambiaron el gid?)";
-  if (status === 429) return "Límite de solicitudes de Google alcanzado — esperá un minuto y reintentá";
+  if (status === 401) return "Sesión de Google vencida — reconecta en 'Conectar Google'";
+  if (status === 403) return "Sin permiso para esta hoja — pídele al líder de la serie que le dé acceso a tu cuenta de Google";
+  if (status === 404) return "Hoja no encontrada — revisa la URL (¿la borraron o cambiaron el gid?)";
+  if (status === 429) return "Límite de solicitudes de Google alcanzado — espera un minuto y reintenta";
   if (!navigator.onLine) return "Sin conexión a internet";
   return e?.message || "Error desconocido";
 }
