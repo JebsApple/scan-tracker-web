@@ -20,7 +20,7 @@ import { selSerie, render } from "./render.js";
 import { registrarSerie } from "../repositories/series-repository.js";
 import { discordConfigurado } from "../repositories/discord-config.js";
 import { getDiscordSession, discordLogin, discordLogout } from "../repositories/discord-auth.js";
-import { getCurrentUser } from "../repositories/auth-email.js";
+import { getCurrentUser, linkGoogleToFirebase } from "../repositories/auth-email.js";
 
 const ovl = document.getElementById("ovl"), modal = document.getElementById("modal");
 export function openM(html) {
@@ -78,7 +78,10 @@ export async function refreshGoogleSession() {
 export async function connectGoogle() {
   try {
     await initAuth(DEFAULT_CLIENT_ID);
-    await requestToken();
+    const token = await requestToken();
+    // Una sola conexión de Google abre las dos sesiones: la de Sheets y la de
+    // Firebase (que es la que necesitan las reglas de Firestore).
+    await linkGoogleToFirebase(token);
     await refreshGoogleSession();
     toast("Sesión iniciada");
     const added = await pullCloudState();

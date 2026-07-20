@@ -23,7 +23,7 @@ import { discordConfigurado } from "./repositories/discord-config.js";
 import { consumeDiscordRedirect, refreshDiscordRoles, isDiscordSignedIn } from "./repositories/discord-auth.js";
 import { sincronizarSeriesDeDiscord } from "./services/discord-series-service.js";
 import { pullCloudState, pullFirestoreState, pushFirestoreState } from "./services/cloud-sync-service.js";
-import { onAuthChange, getCurrentUser } from "./repositories/auth-email.js";
+import { onAuthChange, getCurrentUser, linkGoogleToFirebase } from "./repositories/auth-email.js";
 import { loadUserData, saveUserData } from "./repositories/user-data.js";
 import { showLoginScreen, hideLoginScreen } from "./ui/login-screen.js";
 import { TESTER_EMAILS } from "./repositories/firebase-config.js";
@@ -78,9 +78,11 @@ onAuthChange(async (user) => {
 
 // GIS silent login (para testers con Google OAuth)
 trySilentLogin()
-  .then(async () => {
+  .then(async (token) => {
+    await linkGoogleToFirebase(token);
     await refreshGoogleSession();
     await pullCloudState();
+    await descubrirSeriesDeDiscord();
     await syncAll(false);
     render();
     if (!fbUserReady) hideLoginScreen();
