@@ -1,7 +1,14 @@
 /* TOPBAR */
 #top{display:flex;align-items:center;gap:14px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
-#logo{font-family:var(--disp);font-weight:700;font-size:20px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;user-select:none}
+#logo{display:flex;align-items:center;gap:9px;font-family:var(--disp);font-weight:700;font-size:20px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;user-select:none}
 .logo-tracker{color:var(--red)}
+/* El isotipo se dibuja sobre el fondo de la superficie que lo contiene: el
+   círculo del check tapa la página blanca, así que --mark-surface debe ser el
+   color de esa superficie o queda un halo. */
+.brandMark{width:1.3em;height:1.35em;flex-shrink:0;--mark-surface:var(--panel)}
+/* El wordmark va envuelto: si los spans cuelgan directo del #logo en flex, el
+   gap se mete entre cada uno y el nombre se lee "S CAN TRACKER". */
+.logoText{white-space:nowrap}
 #top .sp{flex:1}
 #filtersPanel,#morePanel{display:contents}
 #drawerBackdrop{display:none}

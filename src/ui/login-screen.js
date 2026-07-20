@@ -149,7 +149,8 @@ export function showLoginScreen() {
   overlay.innerHTML = `
     <div class="authCard">
       <div id="authLogo">
-        <span class="logo-s">S</span><span class="logo-can">CAN</span><span class="logo-tracker">TRACKER</span>
+        <svg class="brandMark" viewBox="0 0 94 98" aria-hidden="true"><use href="#brand-mark"/></svg>
+        <div class="authWordmark"><span class="logo-s">S</span><span class="logo-can">CAN</span><span class="logo-tracker">TRACKER</span></div>
       </div>
       <div class="authBody">${formHTML()}</div>
     </div>`;

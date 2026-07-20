@@ -2,7 +2,13 @@
 #authOverlay{position:fixed;inset:0;background:var(--bg);display:none;align-items:center;justify-content:center;z-index:100}
 #authOverlay.show{display:flex}
 .authCard{background:var(--panel);border:1px solid var(--line);border-top:3px solid var(--red);border-radius:10px;width:min(400px,92vw);padding:32px 28px}
-#authLogo{text-align:center;margin-bottom:24px;font-family:var(--disp);font-weight:700;font-size:26px;letter-spacing:.08em;text-transform:uppercase}
+/* Lockup apilado (isotipo sobre wordmark) — la variante que la guía de marca
+   reserva para splash y listados de tienda. */
+#authLogo{display:flex;flex-direction:column;align-items:center;gap:12px;margin-bottom:24px;font-family:var(--disp);font-weight:700;font-size:26px;letter-spacing:.08em;text-transform:uppercase}
+#authLogo .brandMark{width:56px;height:58px}
+/* El wordmark va envuelto: si los spans cuelgan directo del contenedor en
+   columna, cada uno se vuelve un ítem flex y el nombre se parte en tres. */
+.authWordmark{white-space:nowrap}
 .authTabs{display:flex;margin-bottom:20px;border-bottom:1px solid var(--line)}
 .authTab{flex:1;padding:10px;font-family:var(--disp);font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);border-bottom:2px solid transparent;background:none;cursor:pointer}
 .authTab.active{color:var(--txt);border-bottom-color:var(--red)}
