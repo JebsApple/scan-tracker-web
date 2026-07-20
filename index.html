@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Scan Tracker</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700&family=Archivo+Narrow:wght@500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <link rel="stylesheet" href="styles/tokens.css">
@@ -113,6 +114,21 @@
     <circle cx="12" cy="5" r="1" />
     <circle cx="12" cy="19" r="1" />
   </symbol>
+
+  <!-- Isotipo de marca. No es un ícono Lucide: es multicolor y con relleno, por
+       eso no usa la clase .icon (que fuerza trazo y fill:none). Los colores
+       salen de tokens.css para que siga al tema, no como hex sueltos.
+       Lectura: páginas apiladas (capítulos en cola) + línea de escaneo + check. -->
+  <symbol id="brand-mark" viewBox="0 0 94 98">
+    <rect x="34" y="14" width="42" height="54" rx="6" fill="var(--panel2)" stroke="var(--line)" stroke-width="2"/>
+    <rect x="24" y="22" width="42" height="54" rx="6" fill="var(--panel)" stroke="var(--line)" stroke-width="2"/>
+    <rect x="14" y="30" width="42" height="54" rx="6" fill="var(--txt)"/>
+    <rect x="10" y="55" width="60" height="3" rx="1.5" fill="var(--red)" opacity=".35"/>
+    <rect x="10" y="57" width="60" height="7" rx="3.5" fill="var(--red)"/>
+    <circle cx="64" cy="78" r="13" fill="var(--mark-surface, var(--panel))"/>
+    <circle cx="64" cy="78" r="11" fill="var(--ok)"/>
+    <path d="M58 78 L62.5 82.5 L70 73" stroke="var(--mark-surface, var(--panel))" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </symbol>
 </svg>
 
 <!-- Auth overlay (email/password login) — se muestra cuando no hay sesión -->
@@ -120,7 +136,7 @@
 
 <div id="top">
   <button class="btn" id="bDrawer" title="Series"><svg class="icon"><use href="#i-menu"/></svg></button>
-  <div id="logo"><span class="logo-s">S</span><span class="logo-can">CAN</span><span class="logo-tracker">TRACKER</span></div>
+  <div id="logo"><svg class="brandMark" viewBox="0 0 94 98" aria-hidden="true"><use href="#brand-mark"/></svg><span class="logoText"><span class="logo-s">S</span><span class="logo-can">CAN</span><span class="logo-tracker">TRACKER</span></span></div>
   <button class="btn" id="fMine"><svg class="icon"><use href="#i-list-checks"/></svg> Mis tareas</button>
 
   <button class="btn" id="bFiltersToggle" title="Filtros"><svg class="icon"><use href="#i-filter"/></svg></button>
