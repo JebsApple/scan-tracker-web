@@ -17,9 +17,9 @@ import { esc, uid, fmtDur, friendlyError, parseCSV } from "../utils.js";
 import { icon } from "./icons.js";
 import { toast } from "./toast.js";
 import { selSerie, render } from "./render.js";
-import { registrarSerie } from "../repositories/series-repository.js";
+import { registrarSerie, listSeriesCatalog } from "../repositories/series-repository.js";
 import { discordConfigurado } from "../repositories/discord-config.js";
-import { getDiscordSession, discordLogin, discordLogout } from "../repositories/discord-auth.js";
+import { getDiscordSession, discordLogin, discordLogout, misRolesDiscord } from "../repositories/discord-auth.js";
 import { getCurrentUser, linkGoogleToFirebase } from "../repositories/auth-email.js";
 
 const ovl = document.getElementById("ovl"), modal = document.getElementById("modal");
@@ -325,6 +325,7 @@ export function modalSerie() {
     <div class="hint">Con sesión de Google iniciada funciona con hojas <b>privadas</b> (las que tu cuenta puede ver) y los cambios se escriben de vuelta. Sin sesión, la hoja debe ser pública y agregar #gid= a mano si no es la primera pestaña. Se re-sincroniza cada 5 min y con ${icon("refresh-cw")}.</div></div>
   <div class="fld" id="snRoleF" style="display:none"><label>Rol de Discord (opcional)</label>
     <input id="snRole" placeholder="ID del rol que trabaja esta serie">
+    <input id="snRoleName" placeholder="Nombre del rol (para reconocerlo después)" style="margin-top:8px">
     <div class="hint">Si lo llenas, la serie queda en el catálogo compartido: todos los que tengan ese rol en Discord la ven aparecer sola, sin pegar la URL. El acceso a la hoja lo sigue dando Google — recuerda compartirla con ellos.</div></div>
   <div class="fld" id="snPasteF" style="display:none"><label>CSV (con encabezado Capítulos,Prioridad,TRADUCCIÓN,LISTO,...)</label><textarea id="snPaste"></textarea></div>
   <div class="fld" id="snNF"><label>Capítulos iniciales</label><input id="snN" type="number" value="10" min="0"></div>
@@ -431,6 +432,7 @@ export function modalSerie() {
           name,
           sheetUrl: sr.sheetUrl,
           discordRoleId: roleId,
+          roleName: document.getElementById("snRoleName")?.value.trim() || "",
           uid: getCurrentUser()?.uid || "",
         });
         toast("Serie publicada en el catálogo del scan");
@@ -461,8 +463,33 @@ export function modalDiscord() {
   openM(`<h3>Discord</h3>
   <div class="fld"><label>Cuenta</label><div class="hint">${esc(s.user.name)}</div></div>
   <div class="fld"><label>Roles en el servidor</label><div class="hint">${s.roles.length} rol(es). Las series que te correspondan se agregan al sincronizar.</div></div>
+  <div class="fld"><label>Catálogo del scan</label>
+    <div class="hint">Qué hoja corresponde a qué rol. "Mío" marca los roles que tienes tú.</div>
+    <div id="dcCat" style="margin-top:10px;font-size:12.5px;color:var(--mut)">Cargando…</div></div>
   <div class="mrow"><button class="btn" id="dcOut" style="margin-right:auto;color:var(--mut)">Desconectar</button><button class="btn" id="dcClose">Cerrar</button></div>`);
   document.getElementById("dcClose").onclick = closeM;
+
+  // El catálogo se pinta aparte porque viene de Firestore — el modal no espera
+  // por la red para abrirse.
+  listSeriesCatalog()
+    .then((cat) => {
+      const el = document.getElementById("dcCat");
+      if (!el) return; // el usuario cerró el modal mientras cargaba
+      const mios = new Set(misRolesDiscord());
+      el.innerHTML = cat.length
+        ? `<table class="dashTbl"><thead><tr><th>Serie</th><th>Rol</th><th></th></tr></thead><tbody>${cat
+            .map(
+              (c) => `<tr><td>${esc(c.name)}</td>
+              <td>${esc(c.roleName || "—")}<br><span style="font-size:11px;opacity:.6">${esc(c.discordRoleId)}</span></td>
+              <td>${mios.has(c.discordRoleId) ? `<span style="color:var(--ok)">Mío</span>` : ""}</td></tr>`,
+            )
+            .join("")}</tbody></table>`
+        : "Todavía no hay series publicadas en el catálogo.";
+    })
+    .catch((e) => {
+      const el = document.getElementById("dcCat");
+      if (el) el.textContent = "No se pudo leer el catálogo: " + friendlyError(e);
+    });
   document.getElementById("dcOut").onclick = () => {
     discordLogout();
     closeM();
