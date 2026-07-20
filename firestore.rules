@@ -1,0 +1,14 @@
+rules_version = '2';
+
+// Modelo actual: cada usuario tiene un único documento con sus preferencias
+// (series vinculadas y aliases). Nadie lee ni escribe el de otro.
+//
+// Todo lo que no esté declarado acá queda denegado por defecto — cuando se
+// agreguen series compartidas hay que abrirlas explícitamente.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}

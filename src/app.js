@@ -19,7 +19,6 @@ import {
   connectGoogle,
 } from "./ui/modals.js";
 import { pullCloudState, pullFirestoreState, pushFirestoreState } from "./services/cloud-sync-service.js";
-import { isChileno, toggleChileno } from "./chileno.js";
 import { onAuthChange, getCurrentUser } from "./repositories/auth-email.js";
 import { loadUserData, saveUserData } from "./repositories/user-data.js";
 import { showLoginScreen, hideLoginScreen } from "./ui/login-screen.js";
@@ -148,17 +147,8 @@ document.getElementById("bExport").onclick = () => {
   a.click();
 };
 
-// Easter egg: toca el logo para activar/desactivar modo chileno
-document.getElementById("logo").addEventListener("click", () => {
-  const on = toggleChileno();
-  document.body.classList.toggle("chileno", on);
-  toast(on ? "Modo chileno activado po 🇨🇱" : "Modo chileno desactivado nojada");
-  render();
-});
-
 render();
 paintG();
-if (isChileno()) document.body.classList.add("chileno");
 if (!S.aliases.length && !S.series.length) setTimeout(modalAliases, 400);
 
 // Solo hace algo dentro de la app Android empaquetada (window.Capacitor no

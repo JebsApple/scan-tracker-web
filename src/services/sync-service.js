@@ -25,44 +25,55 @@ async function apiFetchSheet(sr) {
 // etapa sea distinto en esa hoja.
 export const COLW = { trad: ["C", "D"], limp: ["E", "F"], typ: ["G", "H"], corr: ["I", "J"], sube: ["K", "L"] };
 
+// Las tres push* devuelven true si el cambio quedó reflejado en la hoja y
+// false si se perdió. El llamador muta el estado local antes (para que la UI
+// responda al toque) y revierte con ese false — si no, la pantalla queda
+// mintiendo hasta el próximo sync. Una serie sin hoja vinculada devuelve true:
+// no hay nada que escribir, no es un fallo.
 export async function pushCell(sr, ch, col, val) {
-  if (!sr?.api || !ch.srcRow) return;
+  if (!sr?.api || !ch.srcRow) return true;
   try {
     await writeCell(sr.sheetUrl, sr._title, col + ch.srcRow, String(val));
+    return true;
   } catch (e) {
     const msg = friendlyError(e);
     logEvent("Escritura fallida", `${sr.name} cap ${ch.num}: ${msg}`);
     toast("No se pudo escribir: " + msg);
+    return false;
   }
 }
 
 export async function pushNewRow(sr, ch) {
-  if (!sr?.api) return;
+  if (!sr?.api) return true;
   try {
     const row = await appendRow(sr.sheetUrl, sr._title, [ch.num, ch.prio, ...etapasDe(sr).flatMap(() => ["", false])]);
     if (row > 0) {
       ch.srcRow = row;
       save();
     }
+    return true;
   } catch (e) {
     const msg = friendlyError(e);
     logEvent("Fila no agregada", `${sr.name} cap ${ch.num}: ${msg}`);
     toast("No se pudo agregar fila: " + msg);
+    return false;
   }
 }
 
 export async function pushDelRow(sr, ch) {
-  if (!sr?.api || !ch.srcRow) return;
+  if (!sr?.api || !ch.srcRow) return true;
   try {
     await deleteRow(sr.sheetUrl, sr._gid, ch.srcRow);
     sr.chapters.forEach((c) => {
       if (c.srcRow > ch.srcRow) c.srcRow--;
     });
     save();
+    return true;
   } catch (e) {
     const msg = friendlyError(e);
     logEvent("Fila no borrada", `${sr.name} cap ${ch.num}: ${msg}`);
     toast("No se pudo borrar fila: " + msg);
+    return false;
   }
 }
 
