@@ -17,6 +17,10 @@ import { esc, uid, fmtDur, friendlyError, parseCSV } from "../utils.js";
 import { icon } from "./icons.js";
 import { toast } from "./toast.js";
 import { selSerie, render } from "./render.js";
+import { registrarSerie, listSeriesCatalog } from "../repositories/series-repository.js";
+import { discordConfigurado } from "../repositories/discord-config.js";
+import { getDiscordSession, discordLogin, discordLogout, misRolesDiscord } from "../repositories/discord-auth.js";
+import { getCurrentUser, linkGoogleToFirebase } from "../repositories/auth-email.js";
 
 const ovl = document.getElementById("ovl"), modal = document.getElementById("modal");
 export function openM(html) {
@@ -74,7 +78,10 @@ export async function refreshGoogleSession() {
 export async function connectGoogle() {
   try {
     await initAuth(DEFAULT_CLIENT_ID);
-    await requestToken();
+    const token = await requestToken();
+    // Una sola conexión de Google abre las dos sesiones: la de Sheets y la de
+    // Firebase (que es la que necesitan las reglas de Firestore).
+    await linkGoogleToFirebase(token);
     await refreshGoogleSession();
     toast("Sesión iniciada");
     const added = await pullCloudState();
@@ -316,12 +323,18 @@ export function modalSerie() {
     <div style="display:flex;gap:8px;margin-top:8px"><input id="snUrl" placeholder="...o pegue la URL directamente"><button class="btn" id="snTabsBtn" type="button">Elegir pestaña</button></div>
     <select id="snTabsSel" style="display:none;margin-top:8px"></select>
     <div class="hint">Con sesión de Google iniciada funciona con hojas <b>privadas</b> (las que tu cuenta puede ver) y los cambios se escriben de vuelta. Sin sesión, la hoja debe ser pública y agregar #gid= a mano si no es la primera pestaña. Se re-sincroniza cada 5 min y con ${icon("refresh-cw")}.</div></div>
+  <div class="fld" id="snRoleF" style="display:none"><label>Rol de Discord (opcional)</label>
+    <input id="snRole" placeholder="ID del rol que trabaja esta serie">
+    <input id="snRoleName" placeholder="Nombre del rol (para reconocerlo después)" style="margin-top:8px">
+    <div class="hint">Si lo llenas, la serie queda en el catálogo compartido: todos los que tengan ese rol en Discord la ven aparecer sola, sin pegar la URL. El acceso a la hoja lo sigue dando Google — recuerda compartirla con ellos.</div></div>
   <div class="fld" id="snPasteF" style="display:none"><label>CSV (con encabezado Capítulos,Prioridad,TRADUCCIÓN,LISTO,...)</label><textarea id="snPaste"></textarea></div>
   <div class="fld" id="snNF"><label>Capítulos iniciales</label><input id="snN" type="number" value="10" min="0"></div>
   <div class="mrow"><button class="btn" id="snCancel">Cancelar</button><button class="btn red" id="snOk">Crear</button></div>`);
   const src = document.getElementById("snSrc");
   src.onchange = () => {
     document.getElementById("snUrlF").style.display = src.value === "gsheet" ? "" : "none";
+    document.getElementById("snRoleF").style.display =
+      src.value === "gsheet" && discordConfigurado() ? "" : "none";
     document.getElementById("snPasteF").style.display = src.value === "paste" ? "" : "none";
     document.getElementById("snNF").style.display = src.value === "manual" ? "" : "none";
     if (src.value === "file") document.getElementById("csvFile").click();
@@ -410,11 +423,77 @@ export function modalSerie() {
       sr.etapaDefs = r.etapaDefs;
       pendingFileCSV = null;
     }
+    // Registrar en el catálogo compartido para que la vean todos los del rol.
+    // Si falla, la serie igual queda creada localmente — no se pierde trabajo.
+    const roleId = document.getElementById("snRole")?.value.trim();
+    if (v === "gsheet" && roleId && sr.sheetUrl) {
+      try {
+        sr.catalogId = await registrarSerie({
+          name,
+          sheetUrl: sr.sheetUrl,
+          discordRoleId: roleId,
+          roleName: document.getElementById("snRoleName")?.value.trim() || "",
+          uid: getCurrentUser()?.uid || "",
+        });
+        toast("Serie publicada en el catálogo del scan");
+      } catch (e) {
+        toast("Serie creada, pero no se pudo publicar: " + friendlyError(e));
+      }
+    }
+
     S.series.push(sr);
     S.sel = sr.id;
     save();
     render();
     closeM();
     if (sr.sheetUrl) pushUserData();
+  };
+}
+
+export function modalDiscord() {
+  const s = getDiscordSession();
+  if (!s) {
+    openM(`<h3>Conectar Discord</h3>
+    <div class="fld"><div class="hint">Al conectar tu cuenta de Discord, las series de los roles que tengas en el servidor del scan aparecen solas en tu lista — sin ir a buscar la URL de la hoja a Drive.<br><br>Solo se leen tu nombre y tus roles. La app no puede escribir nada en Discord ni ver tus mensajes.</div></div>
+    <div class="mrow"><button class="btn" id="dcCancel">Cancelar</button><button class="btn red" id="dcIn">Conectar Discord</button></div>`);
+    document.getElementById("dcCancel").onclick = closeM;
+    document.getElementById("dcIn").onclick = discordLogin;
+    return;
+  }
+  openM(`<h3>Discord</h3>
+  <div class="fld"><label>Cuenta</label><div class="hint">${esc(s.user.name)}</div></div>
+  <div class="fld"><label>Roles en el servidor</label><div class="hint">${s.roles.length} rol(es). Las series que te correspondan se agregan al sincronizar.</div></div>
+  <div class="fld"><label>Catálogo del scan</label>
+    <div class="hint">Qué hoja corresponde a qué rol. "Mío" marca los roles que tienes tú.</div>
+    <div id="dcCat" style="margin-top:10px;font-size:12.5px;color:var(--mut)">Cargando…</div></div>
+  <div class="mrow"><button class="btn" id="dcOut" style="margin-right:auto;color:var(--mut)">Desconectar</button><button class="btn" id="dcClose">Cerrar</button></div>`);
+  document.getElementById("dcClose").onclick = closeM;
+
+  // El catálogo se pinta aparte porque viene de Firestore — el modal no espera
+  // por la red para abrirse.
+  listSeriesCatalog()
+    .then((cat) => {
+      const el = document.getElementById("dcCat");
+      if (!el) return; // el usuario cerró el modal mientras cargaba
+      const mios = new Set(misRolesDiscord());
+      el.innerHTML = cat.length
+        ? `<table class="dashTbl"><thead><tr><th>Serie</th><th>Rol</th><th></th></tr></thead><tbody>${cat
+            .map(
+              (c) => `<tr><td>${esc(c.name)}</td>
+              <td>${esc(c.roleName || "—")}<br><span style="font-size:11px;opacity:.6">${esc(c.discordRoleId)}</span></td>
+              <td>${mios.has(c.discordRoleId) ? `<span style="color:var(--ok)">Mío</span>` : ""}</td></tr>`,
+            )
+            .join("")}</tbody></table>`
+        : "Todavía no hay series publicadas en el catálogo.";
+    })
+    .catch((e) => {
+      const el = document.getElementById("dcCat");
+      if (el) el.textContent = "No se pudo leer el catálogo: " + friendlyError(e);
+    });
+  document.getElementById("dcOut").onclick = () => {
+    discordLogout();
+    closeM();
+    toast("Discord desconectado");
+    render();
   };
 }
