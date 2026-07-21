@@ -163,6 +163,28 @@ export function hideLoginScreen() {
   overlay.classList.remove("show");
 }
 
+/**
+ * Estado transitorio mientras app.js intenta restaurar sesión (Firebase
+ * local + refresh silencioso de Google) al cargar la página. Reemplaza el
+ * formulario completo con un spinner corto — si la restauración funciona,
+ * hideLoginScreen() la saca; si falla, showLoginScreen() la reemplaza por
+ * el formulario real.
+ */
+export function showCheckingSession() {
+  overlay.innerHTML = `
+    <div class="authCard">
+      <div id="authLogo">
+        <svg class="brandMark" viewBox="0 0 94 98" aria-hidden="true"><use href="#brand-mark"/></svg>
+        <div class="authWordmark"><span class="logo-s">S</span><span class="logo-can">CAN</span><span class="logo-tracker">TRACKER</span></div>
+      </div>
+      <div class="authChecking">
+        <div class="authSpinner"></div>
+        <span>Reconectando…</span>
+      </div>
+    </div>`;
+  overlay.classList.add("show");
+}
+
 // ── Helpers ────────────────────────────────────────────────────────
 function friendlyAuthError(code) {
   const map = {

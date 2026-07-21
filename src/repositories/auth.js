@@ -21,7 +21,7 @@ const SCOPES =
 
 // URL del Worker después de `wrangler deploy` (ver worker/README.md).
 // Reemplazar por la URL real (o el dominio custom que le pongas al Worker).
-const AUTH_WORKER_URL = "https://scantracker-google-auth.WORKER_SUBDOMAIN.workers.dev";
+const AUTH_WORKER_URL = "https://scantracker-google-auth.mnznpremium756-76d.workers.dev";
 
 let codeClient = null;
 let currentToken = null; // { access_token: string, expires_at: number }

@@ -21,11 +21,23 @@ import {
 import { pullCloudState, pullFirestoreState, pushFirestoreState } from "./services/cloud-sync-service.js";
 import { onAuthChange, getCurrentUser } from "./repositories/auth-email.js";
 import { loadUserData, saveUserData } from "./repositories/user-data.js";
-import { showLoginScreen, hideLoginScreen } from "./ui/login-screen.js";
+import { showLoginScreen, hideLoginScreen, showCheckingSession } from "./ui/login-screen.js";
 import { TESTER_EMAILS } from "./repositories/firebase-config.js";
 
 // ── Auth: login screen + Firebase Auth listener ────────────────────
-showLoginScreen();
+// Arranca en "Reconectando…" en vez del formulario completo: tanto
+// Firebase (sesión local) como el refresh silencioso de Google (viaje de
+// red al Worker) pueden tardar un momento en confirmar que SÍ hay sesión —
+// mostrar el form de login de entrada, aunque sea por un instante, se lee
+// como "te pidió loguearte de nuevo" incluso cuando en realidad se está
+// restaurando sola. El formulario real solo aparece si ambos intentos
+// terminan sin encontrar sesión.
+showCheckingSession();
+let fbSettled = false, fbHasUser = false;
+let googleSettled = false, googleOk = false;
+function maybeShowLoginForm() {
+  if (fbSettled && googleSettled && !fbHasUser && !googleOk) showLoginScreen();
+}
 
 try {
   await initAuth(DEFAULT_CLIENT_ID);
@@ -35,6 +47,8 @@ try {
 let fbUserReady = false;
 onAuthChange(async (user) => {
   if (user && user.emailVerified) {
+    fbSettled = true;
+    fbHasUser = true;
     const userData = await loadUserData(user.uid);
     if (userData) {
       // Merge Firestore → S (misma lógica que pullCloudState pero con datos del doc)
@@ -57,19 +71,29 @@ onAuthChange(async (user) => {
     render();
   } else if (user && !user.emailVerified) {
     // Mostrará el overlay de verificación (ya manejado por login-screen.js)
+    fbSettled = true;
+    fbHasUser = true;
+  } else {
+    fbSettled = true;
+    maybeShowLoginForm();
   }
 });
 
 // GIS silent login (para testers con Google OAuth)
 trySilentLogin()
   .then(async () => {
+    googleSettled = true;
+    googleOk = true;
     await refreshGoogleSession();
     await pullCloudState();
     await syncAll(false);
     render();
     if (!fbUserReady) hideLoginScreen();
   })
-  .catch(() => {});
+  .catch(() => {
+    googleSettled = true;
+    maybeShowLoginForm();
+  });
 
 setInterval(() => syncAll(false).then(render), 5 * 60 * 1000); // auto-sync cada 5 min
 

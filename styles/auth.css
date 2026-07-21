@@ -18,6 +18,14 @@
 .authDivider{display:flex;align-items:center;gap:12px;margin:20px 0;color:var(--mut);font-size:12px}
 .authDivider::before,.authDivider::after{content:"";flex:1;height:1px;background:var(--line)}
 .authGoogle{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;border:1px solid var(--line);border-radius:6px;font-size:13px;color:var(--txt)}
+/* Estado transitorio mientras se intenta restaurar sesión (Firebase local +
+   refresh silencioso de Google) antes de mostrar el formulario de login —
+   sin esto, el usuario ve el form completo un instante en cada recarga
+   aunque la sesión se vaya a restaurar sola, y lo lee como "me pidió login
+   de nuevo". */
+.authChecking{display:flex;flex-direction:column;align-items:center;gap:14px;padding:12px 0;color:var(--mut);font-size:13px}
+.authSpinner{width:28px;height:28px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--red);animation:authSpin .8s linear infinite}
+@keyframes authSpin{to{transform:rotate(360deg)}}
 .authGoogle:hover{border-color:var(--txt)}
 .authTesterBadge{font-size:10px;background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:2px 6px;color:var(--mut)}
 .authVerifyMsg{text-align:center;padding:12px 0}
