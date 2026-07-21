@@ -1,0 +1,13 @@
+{
+  "name": "scantracker-google-auth-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "secret:client-secret": "wrangler secret put GOOGLE_CLIENT_SECRET"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}
