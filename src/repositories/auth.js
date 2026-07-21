@@ -1,8 +1,12 @@
-// Google Identity Services (GIS) token client — reemplaza el OAuth desktop
-// de scan-tracker-desktop (GoogleService.java). Corre 100% en el browser,
-// sin backend y sin client_secret: el Client ID de tipo "Aplicación web"
-// es público por diseño (autorizado por "Authorized JavaScript origins" en
-// Google Cloud Console, no por secreto).
+// Google Identity Services (GIS) code client — reemplaza el OAuth desktop
+// de scan-tracker-desktop (GoogleService.java). Corre en el browser, pero a
+// diferencia de la versión anterior (implicit token flow) el authorization
+// code se manda a un Worker de Cloudflare propio (ver /worker) que lo
+// cambia por access_token + refresh_token con el client_secret — el
+// refresh_token queda en una cookie httpOnly del Worker, nunca llega a este
+// JS. Eso es lo que permite reconectar sin popup ni depender del reintento
+// "silencioso" de GIS, que muchos navegadores rompen al bloquear cookies de
+// terceros hacia accounts.google.com.
 
 // drive.metadata.readonly: solo para listar "Compartidos conmigo" (nombre +
 // id de archivo), nunca lee contenido — eso sigue yendo por el scope de
@@ -15,67 +19,86 @@
 const SCOPES =
   "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/drive.metadata.readonly https://www.googleapis.com/auth/drive.appdata";
 
-let tokenClient = null;
+// URL del Worker después de `wrangler deploy` (ver worker/README.md).
+// Reemplazar por la URL real (o el dominio custom que le pongas al Worker).
+const AUTH_WORKER_URL = "https://scantracker-google-auth.mnznpremium756-76d.workers.dev";
+
+let codeClient = null;
 let currentToken = null; // { access_token: string, expires_at: number }
 
-// GIS (implicit token flow) no da refresh_token por diseño de seguridad de
-// Google — el access_token vive en memoria y se pierde al recargar. Lo único
-// persistible es SI el usuario dio consentimiento antes, para poder
-// reintentar un login silencioso (sin popup) al volver a abrir la app.
-const CONSENT_KEY = "scantracker_google_consent";
-function markConsented() {
-  try { localStorage.setItem(CONSENT_KEY, "1"); } catch {}
+async function postAuth(path, body) {
+  const res = await fetch(`${AUTH_WORKER_URL}${path}`, {
+    method: "POST",
+    credentials: "include", // manda/recibe la cookie httpOnly del refresh_token
+    headers: body ? { "Content-Type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Error al hablar con el servidor de autenticación.");
+  return data;
 }
-export function hasConsented() {
-  try { return localStorage.getItem(CONSENT_KEY) === "1"; } catch { return false; }
+
+function storeToken({ access_token, expires_in }) {
+  currentToken = {
+    access_token,
+    expires_at: Date.now() + (Number(expires_in) || 3600) * 1000,
+  };
+  return currentToken.access_token;
 }
 
 export function initAuth(clientId) {
   if (!clientId) throw new Error("falta Client ID");
-  tokenClient = google.accounts.oauth2.initTokenClient({
+  codeClient = google.accounts.oauth2.initCodeClient({
     client_id: clientId,
     scope: SCOPES,
+    ux_mode: "popup",
     callback: () => {}, // se sobreescribe por cada requestToken()
   });
 }
 
-export function requestToken(opts = {}) {
-  const silent = !!opts.silent;
+export function requestToken() {
   return new Promise((resolve, reject) => {
-    if (!tokenClient) {
+    if (!codeClient) {
       reject(new Error("auth no inicializado — configurá el Client ID primero"));
       return;
     }
-    tokenClient.callback = (resp) => {
+    codeClient.callback = async (resp) => {
       if (resp.error) {
         reject(new Error(resp.error));
         return;
       }
-      currentToken = {
-        access_token: resp.access_token,
-        expires_at: Date.now() + (Number(resp.expires_in) || 3600) * 1000,
-      };
-      markConsented();
-      resolve(currentToken.access_token);
+      try {
+        const tokens = await postAuth("/token", { code: resp.code });
+        resolve(storeToken(tokens));
+      } catch (err) {
+        reject(err);
+      }
     };
-    tokenClient.requestAccessToken({ prompt: silent ? "" : (currentToken ? "" : "consent") });
+    codeClient.requestCode();
   });
 }
 
-/** Reintenta sesión sin popup si ya hubo consentimiento antes. Falla en
- * silencio (rechaza la promise) si el navegador bloquea el intento o el
- * usuario ya no tiene sesión activa en Google — el caller debe manejarlo
- * como "seguir sin sesión", no como error visible. */
-export function trySilentLogin() {
-  if (!hasConsented()) return Promise.reject(new Error("sin consentimiento previo"));
-  return requestToken({ silent: true });
+/** Reintenta la sesión pidiéndole al Worker que use la cookie del
+ * refresh_token — sin popup, sin depender del iframe "silencioso" de GIS.
+ * Falla en silencio (rechaza la promise) si no hay cookie o el
+ * refresh_token fue revocado; el caller debe tratarlo como "seguir sin
+ * sesión", no como error visible. */
+export async function trySilentLogin() {
+  const tokens = await postAuth("/refresh");
+  return storeToken(tokens);
 }
 
 export async function getAccessToken() {
   if (currentToken && Date.now() < currentToken.expires_at - 60_000) {
     return currentToken.access_token;
   }
-  return requestToken();
+  // El access_token vivo se venció: intenta renovar con el refresh_token del
+  // Worker antes de pedirle al usuario que vuelva a hacer clic.
+  try {
+    return await trySilentLogin();
+  } catch {
+    return requestToken();
+  }
 }
 
 export function isSignedIn() {
@@ -83,10 +106,10 @@ export function isSignedIn() {
 }
 
 export function signOut() {
-  if (currentToken) {
-    google.accounts.oauth2.revoke(currentToken.access_token, () => {});
-  }
+  const token = currentToken?.access_token;
   currentToken = null;
+  postAuth("/logout").catch(() => {});
+  if (token) google.accounts.oauth2.revoke(token, () => {});
 }
 
 export async function fetchEmail() {
