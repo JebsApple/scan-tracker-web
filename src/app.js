@@ -19,7 +19,7 @@ import {
   connectGoogle,
 } from "./ui/modals.js";
 import { pullCloudState, pullFirestoreState, pushFirestoreState } from "./services/cloud-sync-service.js";
-import { onAuthChange, getCurrentUser } from "./repositories/auth-email.js";
+import { onAuthChange, getCurrentUser, linkGoogleToFirebase } from "./repositories/auth-email.js";
 import { loadUserData, saveUserData } from "./repositories/user-data.js";
 import { showLoginScreen, hideLoginScreen, showCheckingSession } from "./ui/login-screen.js";
 import { TESTER_EMAILS } from "./repositories/firebase-config.js";
@@ -81,9 +81,12 @@ onAuthChange(async (user) => {
 
 // GIS silent login (para testers con Google OAuth)
 trySilentLogin()
-  .then(async () => {
+  .then(async (token) => {
     googleSettled = true;
     googleOk = true;
+    // Misma idea que connectGoogle(): una sesión de Google abre las dos
+    // (Sheets y Firebase) para que las reglas de Firestore no bloqueen todo.
+    await linkGoogleToFirebase(token);
     await refreshGoogleSession();
     await pullCloudState();
     await syncAll(false);

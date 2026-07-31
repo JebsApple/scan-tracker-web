@@ -10,5 +10,12 @@ service cloud.firestore {
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
+
+    // Catálogo compartido de series (nombre + hoja). Por ahora solo lectura:
+    // ninguna UI de este repo escribe acá todavía — dejar create/update/delete
+    // cerrados hasta que haya una feature real que los necesite.
+    match /series/{seriesId} {
+      allow read: if request.auth != null;
+    }
   }
 }

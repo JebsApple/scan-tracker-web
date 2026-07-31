@@ -16,6 +16,7 @@ import { PRIOS, prioClass } from "../services/filters-service.js";
 import { esc, uid, fmtDur, friendlyError, parseCSV } from "../utils.js";
 import { icon } from "./icons.js";
 import { toast } from "./toast.js";
+import { linkGoogleToFirebase } from "../repositories/auth-email.js";
 import { selSerie, render } from "./render.js";
 
 const ovl = document.getElementById("ovl"), modal = document.getElementById("modal");
@@ -74,7 +75,10 @@ export async function refreshGoogleSession() {
 export async function connectGoogle() {
   try {
     await initAuth(DEFAULT_CLIENT_ID);
-    await requestToken();
+    const token = await requestToken();
+    // Una sola conexión de Google abre las dos sesiones: la de Sheets y la de
+    // Firebase (que es la que necesitan las reglas de Firestore).
+    await linkGoogleToFirebase(token);
     await refreshGoogleSession();
     toast("Sesión iniciada");
     const added = await pullCloudState();
