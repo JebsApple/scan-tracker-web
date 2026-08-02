@@ -87,7 +87,7 @@ export async function createSeriesSheet({ name, folderId, chapterCount, names = 
     // Columnas de la Table, en orden — coinciden con HEADER y con el layout
     // posicional que ya detectan detectEtapaDefs/csvToChapters al leer.
     const columnProperties = Array.from({ length: 12 }, (_, columnIndex) => {
-      if (columnIndex === 0) return { columnIndex, columnName: HEADER[0], columnType: "NUMBER" };
+      if (columnIndex === 0) return { columnIndex, columnName: HEADER[0], columnType: "DOUBLE" };
       if (columnIndex === 1) {
         return {
           columnIndex,
@@ -99,7 +99,7 @@ export async function createSeriesSheet({ name, folderId, chapterCount, names = 
         };
       }
       if (LISTO_COLUMNS.includes(columnIndex)) {
-        return { columnIndex, columnName: "LISTO", columnType: "CHECKBOX" };
+        return { columnIndex, columnName: "LISTO", columnType: "BOOLEAN" };
       }
       return {
         columnIndex,

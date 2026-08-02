@@ -73,12 +73,12 @@ describe('createSeriesSheet', () => {
 
     const cols = addTable.table.columnProperties;
     expect(cols).toHaveLength(12);
-    expect(cols[0]).toMatchObject({ columnIndex: 0, columnName: 'Capítulos', columnType: 'NUMBER' });
+    expect(cols[0]).toMatchObject({ columnIndex: 0, columnName: 'Capítulos', columnType: 'DOUBLE' });
     expect(cols[1]).toMatchObject({ columnIndex: 1, columnName: 'Prioridad', columnType: 'DROPDOWN' });
     expect(cols[1].dataValidationRule.condition.values.map((v) => v.userEnteredValue)).toEqual(['URGENTE', 'MODERADO', 'A TU TIEMPO']);
     // LISTO = checkbox real.
     [3, 5, 7, 9, 11].forEach((i) => {
-      expect(cols[i]).toMatchObject({ columnIndex: i, columnName: 'LISTO', columnType: 'CHECKBOX' });
+      expect(cols[i]).toMatchObject({ columnIndex: i, columnName: 'LISTO', columnType: 'BOOLEAN' });
     });
     // Columnas quién = DROPDOWN con los aliases del usuario.
     [2, 4, 6, 8, 10].forEach((i) => {
