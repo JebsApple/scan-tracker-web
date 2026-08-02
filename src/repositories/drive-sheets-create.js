@@ -28,9 +28,9 @@ const DRIVE_BASE = "https://www.googleapis.com/drive/v3/files";
 const HEADER = [
   "Capítulos", "Prioridad",
   "TRADUCCIÓN", "LISTO",
-  "EDICIÓN", "LISTO",
-  "CALIDAD", "LISTO",
-  "REDACCIÓN", "LISTO",
+  "LIMPIEZA", "LISTO",
+  "TYPEO", "LISTO",
+  "CORRECCIÓN", "LISTO",
   "SUBE", "LISTO",
 ];
 

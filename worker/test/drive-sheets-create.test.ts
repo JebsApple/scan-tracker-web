@@ -58,9 +58,9 @@ describe('createSeriesSheet', () => {
     expect(HEADER).toEqual([
       'Capítulos', 'Prioridad',
       'TRADUCCIÓN', 'LISTO',
-      'EDICIÓN', 'LISTO',
-      'CALIDAD', 'LISTO',
-      'REDACCIÓN', 'LISTO',
+      'LIMPIEZA', 'LISTO',
+      'TYPEO', 'LISTO',
+      'CORRECCIÓN', 'LISTO',
       'SUBE', 'LISTO',
     ]);
     expect(WHO_COLUMNS).toEqual([2, 4, 6, 8, 10]);
