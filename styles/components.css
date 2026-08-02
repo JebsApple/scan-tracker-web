@@ -95,6 +95,15 @@ td.del button:hover{color:var(--red)}
 #toast.show{opacity:1}
 @media(max-width:760px){#side{width:200px;min-width:200px}.stage input[type=text]{width:64px}}
 
+/* DRIVE FOLDER PICKER — overlay propio, por encima del modal de "Nueva
+   serie" (z-index 90) para no perder su estado al elegir carpeta. */
+.drivePickOvl{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:92;display:flex;align-items:center;justify-content:center}
+.drivePick{width:min(480px,92vw);max-height:80vh;display:flex;flex-direction:column}
+.drivePick .dpCrumbs{font-size:11.5px;color:var(--mut);margin-bottom:8px}
+.drivePick .dpCrumbs button{color:var(--txt);text-decoration:underline;font-size:11.5px}
+.drivePick #dpList{display:flex;flex-direction:column;gap:6px;max-height:280px;overflow-y:auto}
+.drivePick .dpFolder{display:block;width:100%;text-align:left}
+
 /* MOBILE (app Android empaquetada, o navegador angosto): topbar reducida a
    lo de uso frecuente (sincronizar, deshacer/rehacer, mis tareas), el resto
    se agrupa detrás de togglers. La sidebar de series pasa a ser un drawer
