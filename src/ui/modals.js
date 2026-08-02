@@ -17,6 +17,9 @@ import { esc, uid, fmtDur, friendlyError, parseCSV } from "../utils.js";
 import { icon } from "./icons.js";
 import { toast } from "./toast.js";
 import { linkGoogleToFirebase } from "../repositories/auth-email.js";
+import { invalidateToken } from "../repositories/auth-facade.js";
+import { createSeriesSheet } from "../repositories/drive-sheets-create.js";
+import { openDriveFolderPicker } from "./drive-folder-picker.js";
 import { selSerie, render } from "./render.js";
 
 const ovl = document.getElementById("ovl"), modal = document.getElementById("modal");
@@ -312,6 +315,7 @@ export function modalSerie() {
   <div class="fld"><label>Fuente</label><select id="snSrc">
     <option value="manual">Manual (vacía)</option>
     <option value="gsheet">Google Sheets (vinculada, se sincroniza)</option>
+    <option value="drive">Crear hoja nueva en Drive</option>
     <option value="paste">Pegar CSV</option>
     <option value="file">Archivo CSV local</option></select></div>
   <div class="fld" id="snUrlF" style="display:none"><label>URL de la hoja</label>
@@ -321,13 +325,19 @@ export function modalSerie() {
     <select id="snTabsSel" style="display:none;margin-top:8px"></select>
     <div class="hint">Con sesión de Google iniciada funciona con hojas <b>privadas</b> (las que tu cuenta puede ver) y los cambios se escriben de vuelta. Sin sesión, la hoja debe ser pública y agregar #gid= a mano si no es la primera pestaña. Se re-sincroniza cada 5 min y con ${icon("refresh-cw")}.</div></div>
   <div class="fld" id="snPasteF" style="display:none"><label>CSV (con encabezado Capítulos,Prioridad,TRADUCCIÓN,LISTO,...)</label><textarea id="snPaste"></textarea></div>
+  <div class="fld" id="snDriveF" style="display:none"><label>Carpeta en Drive</label>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn" id="snDriveFolderBtn" type="button">Elegir carpeta</button>
+      <span id="snDriveFolderName" class="hint">Ninguna elegida</span>
+    </div></div>
   <div class="fld" id="snNF"><label>Capítulos iniciales</label><input id="snN" type="number" value="10" min="0"></div>
   <div class="mrow"><button class="btn" id="snCancel">Cancelar</button><button class="btn red" id="snOk">Crear</button></div>`);
   const src = document.getElementById("snSrc");
   src.onchange = () => {
     document.getElementById("snUrlF").style.display = src.value === "gsheet" ? "" : "none";
     document.getElementById("snPasteF").style.display = src.value === "paste" ? "" : "none";
-    document.getElementById("snNF").style.display = src.value === "manual" ? "" : "none";
+    document.getElementById("snDriveF").style.display = src.value === "drive" ? "" : "none";
+    document.getElementById("snNF").style.display = (src.value === "manual" || src.value === "drive") ? "" : "none";
     if (src.value === "file") document.getElementById("csvFile").click();
   };
   document.getElementById("snCancel").onclick = closeM;
@@ -387,10 +397,25 @@ export function modalSerie() {
     rd.readAsText(f);
     e.target.value = "";
   };
+  let pendingDriveFolderId = null;
+  document.getElementById("snDriveFolderBtn").onclick = () => {
+    openDriveFolderPicker({
+      onPick: (folderId) => {
+        pendingDriveFolderId = folderId;
+        document.getElementById("snDriveFolderName").textContent = "Carpeta elegida ✓";
+      },
+    });
+  };
   document.getElementById("snOk").onclick = async () => {
     const name = document.getElementById("snName").value.trim();
     if (!name) return toast("Falta el nombre");
     const v = src.value;
+    // Nota (validación de duplicados, ver task-5-brief.md paso 6): no hay
+    // "sr.sheetUrl" todavía en este punto (se crea más abajo), y
+    // createSeriesSheet siempre genera un spreadsheetId nuevo, así que la
+    // colisión de sheetUrl es estructuralmente imposible en este flujo. Se
+    // deja documentado por si en el futuro se permite elegir un archivo
+    // existente en el picker en vez de crear uno nuevo.
     if (v === "file" && !pendingFileCSV) return toast("Seleccione un archivo CSV primero");
     const sr = { id: uid(), name, sheetUrl: null, chapters: [], ocultos: {} };
     if (v === "manual") {
@@ -408,6 +433,32 @@ export function modalSerie() {
       const r = csvToChapters(parseCSV(document.getElementById("snPaste").value));
       sr.chapters = r.chapters;
       sr.etapaDefs = r.etapaDefs;
+    } else if (v === "drive") {
+      if (!pendingDriveFolderId) return toast("Elegí una carpeta de Drive primero");
+      const n = +document.getElementById("snN").value || 0;
+      const create = () => createSeriesSheet({ name, folderId: pendingDriveFolderId, chapterCount: n });
+      try {
+        const { url } = await create();
+        sr.sheetUrl = url;
+        await fetchSheet(sr);
+        checkDesignations(sr);
+      } catch (e) {
+        if (e.status === 403) {
+          invalidateToken();
+          try {
+            await requestToken();
+            const { url } = await create();
+            sr.sheetUrl = url;
+            await fetchSheet(sr);
+            checkDesignations(sr);
+          } catch (e2) {
+            return toast("No se pudo crear la hoja: " + friendlyError(e2));
+          }
+        } else {
+          return toast("No se pudo crear la hoja: " + friendlyError(e));
+        }
+      }
+      pendingDriveFolderId = null;
     } else if (v === "file" && pendingFileCSV) {
       const r = csvToChapters(parseCSV(pendingFileCSV));
       sr.chapters = r.chapters;
