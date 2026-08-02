@@ -139,7 +139,10 @@ separado en `auth-native.js` con su propio re-consentimiento.
 (`src.value === "drive"`) junto a manual/gsheet/paste/file:
 1. Abre `drive-folder-picker.js`.
 2. Pide cantidad de capítulos inicial (mismo input que ya usa el modo
-   "manual", `#snN`).
+   "manual", `#snN`). El contenedor `#snNF` hoy solo se muestra con
+   `src.value === "manual"` (`modals.js:330`); hay que sumar
+   `|| src.value === "drive"` a esa condición para que el modo nuevo también
+   lo muestre.
 3. Al confirmar: llama `createSeriesSheet(...)`, setea `sr.sheetUrl` con la
    URL devuelta, y sigue el mismo camino que ya sigue el modo `gsheet`
    (`fetchSheet(sr)` → `checkDesignations(sr)` → luego `pushUserData()` si
@@ -150,10 +153,23 @@ separado en `auth-native.js` con su propio re-consentimiento.
 
 ## TL2EDIT (React/TS)
 
-**Reusa sin cambios**: `src/components/DriveFolderPicker.tsx` (ya tiene los
-scopes `drive.file` + `drive.readonly` vía `src/hooks/useGoogleAuth.ts`) y el
-puente de sesión Firebase ya existente (`signInScanTrackerWithGoogle` en
-`src/lib/scanTrackerCatalog.ts`).
+**Reusa sin cambios de componente**: `src/components/DriveFolderPicker.tsx`
+(ya tiene los scopes `drive.file` + `drive.readonly` vía
+`src/hooks/useGoogleAuth.ts`) y el puente de sesión Firebase ya existente
+(`signInScanTrackerWithGoogle` en `src/lib/scanTrackerCatalog.ts`).
+
+El picker está diseñado para el flujo de **exportar** (pide un nombre de
+archivo destino), no es un drop-in 100% silencioso para crear series:
+- Acepta `initialFileName` (`DriveFolderPicker.tsx:53`, input en la línea
+  171) — pasándole `initialFileName={seriesName}` cubre el caso de creación
+  sin tocar el componente. El nombre de la serie queda confirmado dos veces
+  (una en el paso 1 del modal, otra al abrir el picker), aceptable.
+- El título "Guardar en Google Drive" y el botón "Carpeta de exports"
+  (`ensureExportsFolder`, línea 108) están pensados para exports y quedan
+  semánticamente raros en el flujo de crear una serie nueva. No son
+  bloqueantes — si molestan en la revisión visual, la alternativa es una prop
+  opcional para ocultar ese botón, lo cual sí sería un cambio al componente
+  (dejar la decisión para cuando se vea corriendo).
 
 **Nuevo módulo `src/lib/scanTrackerSheetCreate.ts`**:
 - `createScanTrackerSeries({ name, folderId, chapterCount, accessToken }): Promise<{ id: string; url: string }>`
@@ -200,7 +216,14 @@ Aplica a ambas implementaciones:
 
 - **403 por falta de scope/consentimiento** (tester viejo que no re-aceptó):
   mensaje explícito ("Necesitás volver a autorizar Google Drive") + disparar
-  re-login, no un error genérico de red.
+  re-login, no un error genérico de red. En scan-tracker-web esto requiere un
+  cambio puntual en `auth.js`: `getAccessToken()` cachea `currentToken` y solo
+  lo renueva por expiración de tiempo (`auth.js:91-102`), nunca por scope
+  insuficiente — un token vivo pero corto de permisos no se invalida solo.
+  Hace falta exportar algo como `invalidateToken()` (pone `currentToken =
+  null`) y que el handler del 403 la llame antes de pedir `requestToken()` de
+  nuevo, para forzar la pantalla de consentimiento en vez de reintentar con el
+  mismo token insuficiente.
 - **Nombre de serie duplicado**: Drive lo permite (no es error de la API);
   scan-tracker-web valida contra `sheetUrl` duplicado en `S.series` antes de
   guardar (ver arriba). TL2EDIT no necesita esta validación porque
