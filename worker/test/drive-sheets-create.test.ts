@@ -42,6 +42,8 @@ function stubApi({
     if (u.includes(':batchUpdate')) return Promise.resolve({ replies: [{ addTable: {} }] });
     // 3. values (PUT).
     if (u.includes('/values/')) return Promise.resolve({ updates: { updatedRange: `'${title}'!A1:L11` } });
+    // 4. Mover a la carpeta elegida (PATCH addParents/removeParents).
+    if (u.includes('drive/v3/files') && options.method === 'PATCH') return Promise.resolve({});
     return Promise.resolve({});
   });
 }
@@ -157,8 +159,11 @@ describe('createSeriesSheet', () => {
     expect(values[1][0]).toBe('1');
     expect(values[10][0]).toBe('10');
 
-    // Sin PATCH de move: el spreadsheet se crea desde cero, no se copia ni se mueve.
-    expect(authedFetch.mock.calls.some(([u, o]) => String(u).includes('drive/v3/files') && o.method === 'PATCH')).toBe(false);
+    // 4. Mover a la carpeta elegida: PATCH addParents/removeParents.
+    const patchCall = authedFetch.mock.calls.find(([u, o]) => String(u).includes('drive/v3/files') && o.method === 'PATCH');
+    expect(patchCall).toBeDefined();
+    expect(String(patchCall[0])).toContain(`addParents=${encodeURIComponent('F')}`);
+    expect(String(patchCall[0])).toContain('removeParents=root');
     expect(authedFetch.mock.calls.some(([u, o]) => String(u).includes('/copy'))).toBe(false);
   });
 

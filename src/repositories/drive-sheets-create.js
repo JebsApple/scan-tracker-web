@@ -186,6 +186,13 @@ export async function createSeriesSheet({ name, folderId, chapterCount, names = 
       },
     );
 
+    // 4. Mover a la carpeta elegida (el spreadsheet nace en la raíz de Mi
+    //    unidad al crearse por API).
+    await authedFetch(
+      `${DRIVE_BASE}/${spreadsheetId}?addParents=${encodeURIComponent(folderId)}&removeParents=root`,
+      { method: "PATCH" },
+    );
+
     return {
       id: spreadsheetId,
       url: `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit#gid=${sheetId}`,
