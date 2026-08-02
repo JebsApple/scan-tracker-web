@@ -4,8 +4,11 @@ compatibility_date = "2026-07-01"
 
 [vars]
 # Orígenes desde los que se sirve la app. Agregar acá cualquier dominio
-# nuevo (o sacar el localhost de dev) y correr `wrangler deploy` de nuevo.
-ALLOWED_ORIGINS = "https://scantracker.rweb.site,http://localhost:8080"
+# nuevo y correr `wrangler deploy` de nuevo. El localhost de dev se sacó por
+# seguridad: el CORS del Worker rechaza cualquier Origin que no esté listado
+# acá (403 sin Access-Control-Allow-Origin), así que un origen de dev no
+# permitido rompería el login local.
+ALLOWED_ORIGINS = "https://scantracker.rweb.site"
 # Mismo Client ID "Web" que ya usan auth.js/auth-native.js — es público por
 # diseño, no es el secreto. El secreto va aparte, ver abajo.
 GOOGLE_CLIENT_ID = "50665049250-07f71ktrd7a8gd8fhg63l3jhv4hdnu6k.apps.googleusercontent.com"
