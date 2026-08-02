@@ -45,6 +45,14 @@ El Client ID ya viene fijo en el código (`DEFAULT_CLIENT_ID` en `src/repositori
 6. No hace falta client_secret — los Client ID de tipo web son públicos por diseño (Google los autoriza por origen, no por secreto).
 7. Pegar ese Client ID como `DEFAULT_CLIENT_ID` en `src/repositories/auth.js`.
 
+## Cambios de permisos de Google (2026-08)
+
+La función "Crear hoja nueva en Drive" (al crear una serie) agregó dos scopes
+nuevos a los que la app pide: `drive.readonly` (navegar carpetas reales) y
+`drive.file` (crear el spreadsheet ahí). Son scopes sensibles — si ya habías
+iniciado sesión antes de este cambio, la próxima vez que la app pida un token
+vas a ver la pantalla de consentimiento de Google de nuevo, una sola vez.
+
 ### Estructura
 
 ```
