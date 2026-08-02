@@ -13,10 +13,11 @@ import { pullCloudState, pushCloudState, pushUserData } from "../services/cloud-
 import { etapasDe, csvToChapters, nuevoCap } from "../services/etapas-service.js";
 import { esOculto, capCompleto, esperandoGlobal, cargaPorPersona } from "../services/stats-service.js";
 import { PRIOS, prioClass } from "../services/filters-service.js";
-import { esc, uid, fmtDur, friendlyError, parseCSV } from "../utils.js";
+import { esc, uid, fmtDur, friendlyError, parseCSV, norm } from "../utils.js";
 import { icon } from "./icons.js";
 import { toast } from "./toast.js";
-import { linkGoogleToFirebase } from "../repositories/auth-email.js";
+import { linkGoogleToFirebase, logoutEmail } from "../repositories/auth-email.js";
+import { TESTER_EMAILS } from "../repositories/firebase-config.js";
 import { invalidateToken } from "../repositories/auth-facade.js";
 import { createSeriesSheet } from "../repositories/drive-sheets-create.js";
 import { openDriveFolderPicker } from "./drive-folder-picker.js";
@@ -81,7 +82,18 @@ export async function connectGoogle() {
     const token = await requestToken();
     // Una sola conexión de Google abre las dos sesiones: la de Sheets y la de
     // Firebase (que es la que necesitan las reglas de Firestore).
-    await linkGoogleToFirebase(token);
+    const fbUser = await linkGoogleToFirebase(token);
+    // Allowlist de testers: el botón de Google es solo para las cuentas
+    // listadas en firebase-config.js. Cualquier otra se desloguea en el acto
+    // (GIS + Firebase) y la pantalla de login queda abierta — el comentario
+    // de firebase-config.js decía esto pero nadie lo validaba.
+    const email = ((fbUser && fbUser.email) || "").trim().toLowerCase();
+    if (!TESTER_EMAILS.includes(email)) {
+      gSignOut();
+      await logoutEmail();
+      toast("Tu cuenta no está en la lista de testers.");
+      return false;
+    }
     await refreshGoogleSession();
     toast("Sesión iniciada");
     const added = await pullCloudState();
@@ -99,19 +111,37 @@ export function modalAliases() {
   openM(`<h3>Mis nombres</h3>
   <div class="fld"><label>Alias con los que apareces en las hojas</label>
   <div style="display:flex;gap:8px"><input id="aliasIn" placeholder="ingresa tu alias"><button class="btn red" id="aliasAdd">Agregar</button></div>
-  <div class="hint">Puedes pegar varios separados por coma. Se usan para el filtro "Mis tareas" (no distingue mayúsculas).</div>
+  <div class="hint">Puedes pegar varios separados por coma. Se usan para el filtro "Mis tareas" (no distingue mayúsculas). Marca uno con ★ como <b>apodo principal</b>: es el único que se precarga en las columnas "quién" al crear una serie nueva en Drive (desde acá o desde TL2EDIT) — los demás los vas agregando vos a mano en la hoja.</div>
   <div class="tagrow" id="aliasTags"></div></div>
   <div class="mrow"><button class="btn" id="aliasClose">Cerrar</button></div>`);
   const draw = () => {
     document.getElementById("aliasTags").innerHTML = S.aliases
-      .map((a, i) => `<span class="tag">${esc(a)}<button data-i="${i}" class="delAliasBtn">${icon("x")}</button></span>`)
+      .map((a, i) => {
+        const primary = S.primaryAlias && norm(a) === norm(S.primaryAlias);
+        return `<span class="tag${primary ? " tagPrimary" : ""}">
+          <button data-i="${i}" class="starAliasBtn" title="${primary ? "Apodo principal" : "Marcar como principal"}">${primary ? "★" : "☆"}</button>
+          ${esc(a)}
+          <button data-i="${i}" class="delAliasBtn">${icon("x")}</button>
+        </span>`;
+      })
       .join("");
   };
   document.getElementById("aliasClose").onclick = closeM;
   document.getElementById("aliasTags").onclick = (e) => {
+    const star = e.target.closest(".starAliasBtn");
+    if (star) {
+      const a = S.aliases[Number(star.dataset.i)];
+      S.primaryAlias = S.primaryAlias && norm(S.primaryAlias) === norm(a) ? "" : a;
+      save();
+      draw();
+      render(); // refresca la tabla de capítulos: aparecen/desaparecen los botones de "asignarme"
+      pushUserData();
+      return;
+    }
     const b = e.target.closest(".delAliasBtn");
     if (!b) return;
-    S.aliases.splice(Number(b.dataset.i), 1);
+    const [removed] = S.aliases.splice(Number(b.dataset.i), 1);
+    if (removed && S.primaryAlias && norm(removed) === norm(S.primaryAlias)) S.primaryAlias = "";
     save();
     draw();
     render();
@@ -330,7 +360,7 @@ export function modalSerie() {
       <button class="btn" id="snDriveFolderBtn" type="button">Elegir carpeta</button>
       <span id="snDriveFolderName" class="hint">Ninguna elegida</span>
     </div></div>
-  <div class="fld" id="snNF"><label>Capítulos iniciales</label><input id="snN" type="number" value="10" min="0"></div>
+  <div class="fld" id="snNF"><label>Capítulos iniciales</label><input id="snN" type="number" value="10" min="0" max="2000"></div>
   <div class="mrow"><button class="btn" id="snCancel">Cancelar</button><button class="btn red" id="snOk">Crear</button></div>`);
   const src = document.getElementById("snSrc");
   src.onchange = () => {
@@ -436,7 +466,17 @@ export function modalSerie() {
     } else if (v === "drive") {
       if (!pendingDriveFolderId) return toast("Elegí una carpeta de Drive primero");
       const n = +document.getElementById("snN").value || 0;
-      const create = () => createSeriesSheet({ name, folderId: pendingDriveFolderId, chapterCount: n });
+      // La hoja se arma con una Table de Sheets que cubre chapterCount + 1
+      // filas — el rango válido es [1, 2000] (ver createSeriesSheet).
+      if (!Number.isInteger(n) || n < 1 || n > 2000) {
+        return toast("La cantidad de capítulos debe ser un número entero entre 1 y 2000.");
+      }
+      // Solo el apodo principal, no todos los alias — el resto los agrega el
+      // usuario a mano en la hoja según haga falta (ver modalAliases).
+      const create = () => createSeriesSheet({
+        name, folderId: pendingDriveFolderId, chapterCount: n,
+        names: S.primaryAlias ? [S.primaryAlias] : [],
+      });
       try {
         const { url } = await create();
         sr.sheetUrl = url;

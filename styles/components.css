@@ -53,6 +53,7 @@ td.cap{font-family:var(--mono);font-weight:700;font-size:13px}
 .prio.URGENTE{background:rgba(224,50,47,.18);color:#ff6b69}
 .prio.MODERADO{background:rgba(245,183,61,.14);color:var(--warn)}
 .prio.ATU{background:rgba(139,135,148,.15);color:var(--mut)}
+.prio.LISTO{background:rgba(61,220,132,.15);color:var(--ok)}
 .stage{display:flex;align-items:center;gap:7px;min-width:120px}
 .stage input[type=text]{width:92px;padding:4px 7px;font-size:12px;background:transparent;border-color:transparent}
 .stage input[type=text]:hover{border-color:var(--line)}
@@ -62,6 +63,9 @@ td.cap{font-family:var(--mono);font-weight:700;font-size:13px}
 .ck.done{background:var(--ok);border-color:var(--ok);color:#0b0b0d;font-weight:900}
 .ck.done .icon{stroke-width:3}
 .ck.pend-me{border-color:var(--red);box-shadow:0 0 0 3px var(--red-soft)}
+.claimWho{width:17px;height:17px;border-radius:4px;border:1.5px dashed var(--mut);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--mut)}
+.claimWho:hover{border-color:var(--red);color:var(--red)}
+.claimWho .icon{width:11px;height:11px}
 td.del button{color:var(--mut);font-size:15px;padding:2px 6px}
 td.del button:hover{color:var(--red)}
 #empty{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;color:var(--mut)}
@@ -81,6 +85,9 @@ td.del button:hover{color:var(--red)}
 .tag{display:inline-flex;align-items:center;gap:6px;background:var(--red-soft);border:1px solid var(--red-dim);color:var(--txt);padding:4px 10px;border-radius:99px;font-size:12.5px}
 .tag button{color:var(--mut);font-size:13px}
 .tag button:hover{color:var(--red)}
+.tagPrimary{background:rgba(61,220,132,.15);border-color:var(--ok)}
+.starAliasBtn{color:var(--warn)}
+.starAliasBtn:hover{color:var(--warn)}
 .mrow{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
 .dashGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:16px}
 .dashCard{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px}

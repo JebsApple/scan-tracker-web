@@ -38,8 +38,11 @@ No existe hoy ninguna vía, en ninguno de los dos repos, para crear una serie
    comportamiento que `DriveFolderPicker.tsx` de TL2EDIT, maquetado con los
    estilos ya existentes de scan-tracker-web).
 4. **Construir el spreadsheet vía Sheets API** (no copiar una plantilla
-   externa) — autocontenido en el repo, sin dependencia de un archivo externo
-   que se pueda perder o desconfigurar.
+   externa) — autocontenido en el repo, sin dependencia de un archivo
+   externo que se pueda perder o desconfigurar. **addTable** (Tables API de
+   Sheets v4, abril 2025) permite crear columnas tipadas (`DROPDOWN`,
+   `CHECKBOX`, `NUMBER`) con chips de color nativos desde cero por código,
+   y funciona para cualquier cuenta sin 403.
 
 ## Formato estándar (contrato compartido)
 
@@ -49,9 +52,9 @@ Header fijo, fila 1, igual en ambos stacks:
 Capítulos | Prioridad | TRADUCCIÓN | LISTO | LIMPIEZA | LISTO | TYPEO | LISTO | CORRECCIÓN | LISTO | SUBE | LISTO
 ```
 
-- Las 5 columnas "LISTO" llevan `setDataValidation` tipo `BOOLEAN` (checkbox
-  real, igual que en las hojas reales del usuario — no texto "TRUE"/"FALSE").
-- Fila 1: negrita, congelada (`frozenRowCount: 1`).
+- Las 5 columnas "LISTO" son checkbox real (columna `BOOLEAN` de la Table,
+  ver "Plantilla" — no texto "TRUE"/"FALSE").
+- Fila 1: negrita, congelada (heredado de la plantilla).
 - Filas de capítulos (1..N, N elegido al crear, mismo input que ya tiene el
   modo "manual"): `Capítulos` = número como string, `Prioridad` = `"URGENTE"`
   por defecto (mismo default que `nuevoCap()` en `etapas-service.js`), el
@@ -72,21 +75,96 @@ texto fijo, la detección es 100% posicional (par who/done por columna). Se
 deja explícito acá para que no se lea como contradicción entre el contrato
 documentado y el código citado como referencia.
 
-**Creación del spreadsheet — orden de pasos preciso**: el `POST
-spreadsheets` devuelve la pestaña por defecto con su `title` real (típicamente
-`"Sheet1"`) y su `sheetId` (típicamente `0`, pero no asumirlo). Los pasos 2 y
-3 dependen de esa respuesta:
-1. `POST .../spreadsheets` con `properties.title = name` → leer
-   `response.sheets[0].properties.sheetId` y `.title`.
-2. Escribir valores en el rango `'{title}'!A1:L{N+1}` (usar el `title` real,
-   no un literal `"Sheet1"`).
-3. `batchUpdate` con `setDataValidation` y `updateSheetProperties`
-   (`frozenRowCount: 1`) usando el `sheetId` numérico obtenido en el paso 1,
-   no el título.
-4. Mover a la carpeta elegida (`addParents`/`removeParents`).
+**Plantilla** (reemplaza la construcción desde cero — decisión #4 revertida
+2026-08-02): en vez de armar el formato con `batchUpdate`, el spreadsheet
+nuevo se crea copiando `TEMPLATE_SPREADSHEET_ID` con `Drive.files.copy`. La
+plantilla es una copia de "Lucky Mia" (serie real del usuario,
+`173Tw9XhFooh5NKcJrmkEBJlL1WvkK51WyvPaSxw9BdE`) guardada como
+`1uPzjSfUF8laSepIYScyyCO5E9MxmwzYke-F5UQAvaII` en el mismo Drive. Lucky Mia
+ya es una **Table** de Sheets con Prioridad y las 5 columnas "quién" tipadas
+`DROPDOWN` (ver decisión #4). Un solo archivo, mismo ID hardcodeado en los
+dos repos (mismo Drive, misma cuenta). **La plantilla debe conservar siempre
+al menos 1 fila de datos formateada** — `insertDimension` con
+`inheritFromBefore` (paso 4 más abajo) hereda de la fila anterior a la
+inserción; si la plantilla quedara con 0 filas de datos, heredaría del
+header en vez de una fila de datos real y se perdería el tipo de columna en
+las filas agregadas.
+
+**Creación del spreadsheet — orden de pasos preciso**:
+1. `POST drive/v3/files/{TEMPLATE_SPREADSHEET_ID}/copy` con
+   `{ name, parents: [folderId] }` → copia directo a la carpeta elegida, sin
+   paso de mover aparte.
+2. `GET spreadsheets/{id}?fields=sheets(properties,tables)` → leer `sheetId`
+   y `title` reales de la copia (se preservan de la plantilla, pero no
+   asumirlo), y la `Table` completa (`tableId`, `range`, `columnProperties`
+   con el dropdown de cada columna). La plantilla tiene una sola Table de
+   datos que arranca en columna A — filtrar por
+   `table.range.startColumnIndex === 0` (Lucky Mia trae además una tablita
+   suelta ajena a esto, en `O5:O8`).
+3. `templateRows = table.range.endRowIndex - 1` (el rango de la Table
+   incluye el header).
+4. `batchUpdate`:
+   - Si `chapterCount < templateRows`: `deleteDimension` sobre las filas
+     sobrantes.
+   - Si `chapterCount > templateRows`: `insertDimension` con
+     `inheritFromBefore: true` — hereda formato/tipo/chip de la fila
+     anterior.
+   - `updateTable` con `fields: "columnProperties,range"`: reemplaza el
+     `dataValidationRule.condition.values` de las columnas C, E, G, I, K
+     (los "quién" de cada etapa) por **los aliases del usuario**, o por
+     `["-"]` si el usuario todavía no tiene ningún alias configurado —
+     nunca se deja filtrar el nombre de otra serie. El fieldmask
+     `columnProperties` reemplaza el array **completo**, así que hay que
+     reenviar también las columnas que no cambian (LISTO, Prioridad,
+     Capítulos) tal cual vinieron en el paso 2. También actualiza
+     `range.endRowIndex` a `chapterCount + 1` para que la Table cubra
+     exactamente las filas reales.
+   - **No usar `setDataValidation`** en ninguna columna de la Table — la API
+     lo bloquea con 400 ("No se permite esta operación en celdas de columnas
+     con tipo especificado") una vez que la celda pertenece a una columna
+     tipada.
+5. Escribir valores en el rango `'{title}'!A1:L{N+1}` (header + capítulos
+   reales, pisa lo que haya traído la plantilla en esas celdas). Esto sigue
+   siendo un `values.update` normal — no está restringido por la Table.
 
 Ambas implementaciones (scan-tracker-web y TL2EDIT) deben seguir esta
 secuencia exacta para no divergir en un detalle que solo aparece al integrar.
+
+**Comportamiento distinto al legacy `setDataValidation`**: `TableColumnDataValidationRule`
+no tiene campo `strict` — no se puede replicar el "dropdown editable, se
+puede escribir cualquier nombre" que tenía el diseño original con
+`setDataValidation`. El comportamiento real de un dropdown `DROPDOWN` de
+Table frente a un valor fuera de la lista no está verificado contra Drive
+real; falta confirmarlo en el checklist manual.
+
+**Formato heredado de la plantilla** (ya no se arma por código): tabla con
+banding + filtros, checkboxes reales en las columnas LISTO, dropdown de
+Prioridad con 4 valores (`URGENTE`, `MODERADO`, `A TU TIEMPO`, `LISTO`) con
+chip coloreado, columnas "quién" también con chip (columna `DROPDOWN`), fila
+1 en negrita y congelada — todo viene con la copia de la Table, nada se
+arma con `batchUpdate` desde cero.
+
+**Apodo principal, no todos los alias** (agregado 2026-08-02, tras la
+primera prueba real: precargar los ~7 alias de "Mis nombres" en cada columna
+quién ensuciaba la hoja con nombres del usuario en todas las etapas). El
+`names` que alimenta el dropdown de las columnas quién ya **no** es
+`S.aliases` completo — es un único "apodo principal" que el usuario marca
+con ★ en el modal "Mis nombres" (`modalAliases`, scan-tracker-web). Se
+obtiene: en scan-tracker-web de `S.primaryAlias` (estado local, sincronizado
+con `users/{uid}.primaryAlias` — mismo mecanismo push/pull que `aliases`,
+adopta el remoto solo si el local está vacío); en TL2EDIT de
+`getMyScanTrackerPrimaryAlias(uid)` tras `signInScanTrackerWithGoogle`. Si
+el usuario no marcó ninguno, `names` queda vacío y la columna se precarga
+con el placeholder `["-"]` (ver "Creación del spreadsheet" paso 4). El resto
+de los nombres del equipo los agrega el propio usuario escribiéndolos en la
+hoja a medida que hacen falta — `getMyScanTrackerAliases(uid)` (todos los
+alias) sigue existiendo y se usa en otro lado (`useMyScanTrackerAliases` en
+TL2EDIT, para detectar "cuál etapa es mía" al marcar progreso), pero ya no
+alimenta la creación de series.
+
+El contrato de **lectura** no cambia: `detectEtapaDefs`/`csvToChapters` leen
+valores de celda, no la validación — los dropdowns y el banding no afectan
+la detección posicional del header.
 
 ## scan-tracker-web (JS vanilla)
 
@@ -143,7 +221,9 @@ separado en `auth-native.js` con su propio re-consentimiento.
    `src.value === "manual"` (`modals.js:330`); hay que sumar
    `|| src.value === "drive"` a esa condición para que el modo nuevo también
    lo muestre.
-3. Al confirmar: llama `createSeriesSheet(...)`, setea `sr.sheetUrl` con la
+3. Al confirmar: llama `createSeriesSheet({ name, folderId, chapterCount,
+   names: S.aliases })` (los aliases alimentan los dropdowns editables de las
+   columnas quién — ver "Acabado visual"), setea `sr.sheetUrl` con la
    URL devuelta, y sigue el mismo camino que ya sigue el modo `gsheet`
    (`fetchSheet(sr)` → `checkDesignations(sr)` → luego `pushUserData()` si
    `sr.sheetUrl`).
@@ -171,11 +251,13 @@ archivo destino), no es un drop-in 100% silencioso para crear series:
   opcional para ocultar ese botón, lo cual sí sería un cambio al componente
   (dejar la decisión para cuando se vea corriendo).
 
-**Nuevo módulo `src/lib/scanTrackerSheetCreate.ts`**:
-- `createScanTrackerSeries({ name, folderId, chapterCount, accessToken }): Promise<{ id: string; url: string }>`
-  — misma secuencia de 4 pasos que `drive-sheets-create.js` en scan-tracker-web
-  (crear spreadsheet → escribir valores → checkboxes → mover a carpeta), en
-  TypeScript, con `fetch` propio siguiendo el estilo de `scanTrackerSheet.ts`.
+**`createScanTrackerSeries` en `src/lib/scanTrackerSheet.ts`** (no es un
+módulo aparte — vive junto al resto de las funciones de lectura/escritura de
+la hoja):
+- `createScanTrackerSeries({ name, folderId, chapterCount, accessToken, names }): Promise<{ id: string; url: string }>`
+  — misma secuencia de pasos que `drive-sheets-create.js` en scan-tracker-web
+  (ver "Creación del spreadsheet — orden de pasos preciso" más arriba), en
+  TypeScript, con `fetch` propio siguiendo el estilo del resto del archivo.
 
 **Nueva función de escritura en `src/lib/scanTrackerCatalog.ts`** (hoy es
 100% lectura):
@@ -194,7 +276,9 @@ archivo destino), no es un drop-in 100% silencioso para crear series:
 Tracker"**:
 1. Pide nombre + cantidad de capítulos.
 2. Abre `DriveFolderPicker`.
-3. Llama `createScanTrackerSeries(...)`, luego
+3. Llama `createScanTrackerSeries(...)` pasándole los aliases obtenidos con
+   `getMyScanTrackerAliases(uid)` tras el signIn (alimentan los dropdowns
+   editables de las columnas quién — ver "Acabado visual"), luego
    `addSeriesToScanTrackerProfile(uid, { name, sheetUrl })`.
 4. Termina llamando al mismo callback `onCreateFromScanTracker({ seriesName,
    sheetUrl })` que ya usa el flujo existente — sin tocar el contrato hacia
@@ -262,6 +346,22 @@ Aplica a ambas implementaciones:
   falla.
 - Abrir la hoja creada y confirmar que las columnas "LISTO" son checkboxes
   clicables, no texto.
+- Confirmar el formato de tabla heredado de la plantilla: bandas de filas,
+  header destacado y botones de filtro en la fila 1.
+- Confirmar que la columna Prioridad tiene dropdown editable (las 4 opciones,
+  y se puede escribir otra) y que cada valor se ve como chip coloreado
+  (URGENTE rojo, MODERADO ámbar, A TU TIEMPO gris, LISTO verde).
+- **Punto crítico a verificar** (riesgo abierto sin confirmar, ver sección
+  "Plantilla"): las columnas quién (C/E/G/I/K) tienen dropdown editable con
+  los aliases del usuario como opciones (o `"-"` sin aliases), se puede
+  escribir un nombre que no esté en la lista (`strict: false`), **y siguen
+  mostrando chip coloreado después de que el código reemplazó la lista de la
+  plantilla** — si el chip se pierde acá, hay que revisar la mitigación en
+  "Plantilla".
+- Confirmar que las filas de más allá de `chapterCount` (las que traía la
+  plantilla) se borraron, y que si `chapterCount` es mayor a lo que trae la
+  plantilla, las filas nuevas también tienen checkbox/dropdown/chip (no
+  quedan en blanco sin formato).
 - Vincular manualmente (modo "gsheet" existente) una hoja recién creada por
   este flujo y confirmar que `detectEtapaDefs` la reconoce sin ajustes.
 - Elegir una carpeta de "Compartido conmigo" sin permiso de escritura y
@@ -269,6 +369,10 @@ Aplica a ambas implementaciones:
 
 ## Fuera de alcance
 
+- Mantenimiento de la plantilla maestra (`TEMPLATE_SPREADSHEET_ID`): si se
+  necesita cambiar el header, agregar una etapa o limpiar los nombres que
+  trae por defecto, es edición manual directa sobre ese archivo en Drive —
+  no hay script ni comando que la regenere.
 - Personalización de etapas al crear (nombres/cantidad distintos a los 5
   estándar).
 - Paquete npm compartido entre los dos repos.

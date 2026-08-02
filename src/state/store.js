@@ -7,6 +7,7 @@ const STORAGE_KEY = "scantracker";
 function defaults() {
   return {
     aliases: [],
+    primaryAlias: "",
     series: [],
     sel: null,
     filters: { prio: "", estado: "", busca: "", etapa: "", orden: "" },
@@ -26,6 +27,7 @@ export function load() {
 }
 
 function migrate(s) {
+  s.primaryAlias = s.primaryAlias || "";
   s.filters = s.filters || {};
   s.filters.etapa = s.filters.etapa || "";
   s.filters.orden = s.filters.orden || "";
