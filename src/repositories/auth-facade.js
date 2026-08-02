@@ -13,6 +13,7 @@ export const initAuth = (clientId) => impl().initAuth(clientId);
 export const requestToken = (opts) => impl().requestToken(opts);
 export const trySilentLogin = () => impl().trySilentLogin();
 export const getAccessToken = () => impl().getAccessToken();
+export const invalidateToken = () => impl().invalidateToken?.();
 export const isSignedIn = () => impl().isSignedIn();
 export const signOut = () => impl().signOut();
 export const fetchEmail = () => impl().fetchEmail();
