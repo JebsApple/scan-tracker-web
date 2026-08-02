@@ -63,16 +63,51 @@ Este layout debe coincidir byte a byte entre ambas implementaciones para que
 `detectEtapaDefs` / `csvToChapters` (ya existentes, sin cambios) reconozcan la
 hoja sin fricción al leerla después.
 
+**Nota sobre casing**: los labels arriba van en mayúsculas (`TRADUCCIÓN`,
+`TYPEO`, `CORRECCIÓN`) siguiendo el placeholder del modo "paste" ya existente
+(`modals.js:323`), no el Title Case de la constante `ETAPAS` en
+`etapas-service.js` ("Traducción", "Typeo", "Corrección"). Es una elección de
+redacción, no una incompatibilidad: `detectEtapaDefs` nunca compara contra
+texto fijo, la detección es 100% posicional (par who/done por columna). Se
+deja explícito acá para que no se lea como contradicción entre el contrato
+documentado y el código citado como referencia.
+
+**Creación del spreadsheet — orden de pasos preciso**: el `POST
+spreadsheets` devuelve la pestaña por defecto con su `title` real (típicamente
+`"Sheet1"`) y su `sheetId` (típicamente `0`, pero no asumirlo). Los pasos 2 y
+3 dependen de esa respuesta:
+1. `POST .../spreadsheets` con `properties.title = name` → leer
+   `response.sheets[0].properties.sheetId` y `.title`.
+2. Escribir valores en el rango `'{title}'!A1:L{N+1}` (usar el `title` real,
+   no un literal `"Sheet1"`).
+3. `batchUpdate` con `setDataValidation` y `updateSheetProperties`
+   (`frozenRowCount: 1`) usando el `sheetId` numérico obtenido en el paso 1,
+   no el título.
+4. Mover a la carpeta elegida (`addParents`/`removeParents`).
+
+Ambas implementaciones (scan-tracker-web y TL2EDIT) deben seguir esta
+secuencia exacta para no divergir en un detalle que solo aparece al integrar.
+
 ## scan-tracker-web (JS vanilla)
 
 **Scopes OAuth** (`src/repositories/auth.js`): agregar
 `https://www.googleapis.com/auth/drive.readonly` y
-`https://www.googleapis.com/auth/drive.file` a la constante `SCOPES` (hoy solo
-tiene `drive.metadata.readonly`, insuficiente para navegar carpetas reales y
-crear archivos). Son scopes sensibles: los testers existentes
-(`TESTER_EMAILS` en `firebase-config.js`) van a necesitar re-aceptar el
-consentimiento la próxima vez que hagan login. Documentar esto en el
-changelog de la rama.
+`https://www.googleapis.com/auth/drive.file` a la constante `SCOPES` existente
+(hoy tiene `spreadsheets`, `userinfo.email`, `drive.metadata.readonly` y
+`drive.appdata` — insuficiente para navegar carpetas reales y crear
+archivos, aunque no está vacía como decía una versión anterior de esta spec).
+Son scopes sensibles: los testers existentes (`TESTER_EMAILS` en
+`firebase-config.js`) van a necesitar re-aceptar el consentimiento la próxima
+vez que hagan login en el flujo **web**. Documentar esto en el `README.md`
+del repo (no existe `CHANGELOG.md` en scan-tracker-web).
+
+**Mobile (Android/Capacitor) queda fuera de alcance en esta rama.**
+`src/repositories/auth-native.js` tiene su propia constante `SCOPES`,
+independiente de `auth.js` (usa el flujo nativo de Credential Manager, no
+GIS). No se toca en esta rama — la 5ª opción del modal ("crear en Drive") no
+está disponible cuando la app corre embebida en Capacitor, o simplemente no
+se valida ahí todavía. Si más adelante se quiere mobile, es un cambio
+separado en `auth-native.js` con su propio re-consentimiento.
 
 **Nuevo módulo `src/repositories/drive-sheets-create.js`**:
 - `createSeriesSheet({ name, folderId, chapterCount })` → `Promise<{ id, url }>`.
@@ -84,16 +119,20 @@ changelog de la rama.
      columnas D, F, H, J, L (las 5 "LISTO"), filas 2..N+1.
   4. `PATCH https://www.googleapis.com/drive/v3/files/{id}?addParents={folderId}&removeParents=root`
      para mover el archivo recién creado a la carpeta elegida.
-  - Reusa el patrón `authedFetch` ya existente en `src/repositories/sheets-api.js`
-    (mismo `getAccessToken()` de `auth-facade.js`).
+  - `authedFetch` en `src/repositories/sheets-api.js:19` hoy es una función
+    interna, no exportada. Se exporta (`export async function authedFetch`)
+    para que `drive-sheets-create.js` la reuse en vez de duplicarla — toque
+    de una línea en `sheets-api.js`, sin cambiar su comportamiento.
 
 **Nuevo componente `src/ui/drive-folder-picker.js`**:
 - Mismo comportamiento que `DriveFolderPicker.tsx` de TL2EDIT: navegar Mi
   unidad / Compartido conmigo, breadcrumbs, recordar última carpeta usada en
   `localStorage` (clave propia, ej. `scantracker-drive-create-last-folder`),
   botón "Crear aquí".
-- Maquetado con `styles/modals.css` y `styles/tokens.css` existentes — no se
-  clonan clases de TL2EDIT.
+- Maquetado con las clases `.modal` ya existentes en `styles/components.css:73`
+  y las variables de `styles/tokens.css` — no existe un `styles/modals.css`
+  separado (el repo solo tiene `auth.css`, `base.css`, `components.css`,
+  `tokens.css`). No se clonan clases de TL2EDIT.
 - Listado de subcarpetas: `GET /drive/v3/files?q=mimeType='application/vnd.google-apps.folder' and '{parentId}' in parents`.
 
 **Modal existente (`src/ui/modals.js`)**: agregar una 5ª fuente
@@ -106,14 +145,14 @@ changelog de la rama.
    (`fetchSheet(sr)` → `checkDesignations(sr)` → luego `pushUserData()` si
    `sr.sheetUrl`).
 4. Antes de crear: valida que no exista ya un `sheetUrl` repetido en
-   `S.series` (mismo patrón que `app.js:57`, `localUrls`), aunque el caso es
+   `S.series` (mismo patrón que `app.js:55`, `localUrls`), aunque el caso es
    improbable porque el archivo se crea nuevo en cada llamada.
 
 ## TL2EDIT (React/TS)
 
 **Reusa sin cambios**: `src/components/DriveFolderPicker.tsx` (ya tiene los
-scopes `drive.file` + `drive.readonly` vía `useGoogleAuth.ts`) y el puente de
-sesión Firebase ya existente (`signInScanTrackerWithGoogle` en
+scopes `drive.file` + `drive.readonly` vía `src/hooks/useGoogleAuth.ts`) y el
+puente de sesión Firebase ya existente (`signInScanTrackerWithGoogle` en
 `src/lib/scanTrackerCatalog.ts`).
 
 **Nuevo módulo `src/lib/scanTrackerSheetCreate.ts`**:
@@ -125,9 +164,14 @@ sesión Firebase ya existente (`signInScanTrackerWithGoogle` en
 **Nueva función de escritura en `src/lib/scanTrackerCatalog.ts`** (hoy es
 100% lectura):
 - `addSeriesToScanTrackerProfile(uid: string, series: ScanTrackerUserSeries): Promise<void>`
-  — `updateDoc(doc(db, 'users', uid), { series: arrayUnion(series) })`.
-  Permitido por `firestore.rules` (`request.auth.uid == userId`) gracias a la
-  sesión ya puenteada con `signInScanTrackerWithGoogle`.
+  — `setDoc(doc(db, 'users', uid), { series: arrayUnion(series) }, { merge: true })`.
+  **No usar `updateDoc`**: lanza "document does not exist" si el usuario nunca
+  inició sesión en scan-tracker-web (el doc `users/{uid}` lo crea recién
+  `pushFirestoreState`/`saveFS` al guardar la primera serie/alias desde la
+  web) — un tester que empiece por TL2EDIT no tendría ese doc todavía.
+  `setDoc` con `merge: true` funciona en ambos casos. Permitido por
+  `firestore.rules` (`request.auth.uid == userId`) gracias a la sesión ya
+  puenteada con `signInScanTrackerWithGoogle`.
 
 **`src/components/CreateSeriesModal.tsx`**: agregar una tercera opción junto a
 "manual" y "desde tu perfil de Scan Tracker": **"Crear serie nueva en Scan
@@ -140,10 +184,15 @@ Tracker"**:
    sheetUrl })` que ya usa el flujo existente — sin tocar el contrato hacia
    `App.tsx`.
 
-**Efecto colateral esperado**: al escribir en `users/{uid}.series`, la serie
-aparece automáticamente en scan-tracker-web sin sync adicional, porque ese
-doc ya se escucha en tiempo real ahí (`onUserData` en
-`src/repositories/user-data.js`).
+**No es tiempo real**: `onUserData` existe en `src/repositories/user-data.js`
+pero hoy no lo importa nadie — el único pull de Firestore en scan-tracker-web
+es `loadUserData` dentro de `onAuthChange` (`app.js:52`), que corre una sola
+vez al iniciar sesión. Una serie creada desde TL2EDIT queda escrita en
+`users/{uid}.series`, pero si scan-tracker-web ya estaba abierto en ese
+momento **no la va a mostrar hasta el próximo login o reload**. Conectar
+`onUserData` para que sea reactivo es un cambio al modelo de sync general de
+la app (qué pasa si llega un update remoto mientras el usuario edita algo
+local) y queda fuera de alcance de esta rama — ver "Fuera de alcance".
 
 ## Manejo de errores
 
@@ -180,6 +229,21 @@ Aplica a ambas implementaciones:
   - Sin Playwright nuevo — se deja un checklist manual para probar el flujo
     real contra Drive/Firestore (no mockeable de forma útil).
 
+**Checklist manual (ambos repos, contra Drive/Firestore reales)**:
+- Tester existente re-logueado tras el cambio de scopes ve la pantalla de
+  consentimiento de Google (no queda pegado con el token viejo insuficiente).
+- Crear serie eligiendo una carpeta anidada (no la raíz) y confirmar que el
+  archivo aparece ahí, no en "Mi unidad".
+- Crear serie desde TL2EDIT con una cuenta que nunca abrió scan-tracker-web
+  (sin doc `users/{uid}` previo) — confirmar que `setDoc({merge:true})` no
+  falla.
+- Abrir la hoja creada y confirmar que las columnas "LISTO" son checkboxes
+  clicables, no texto.
+- Vincular manualmente (modo "gsheet" existente) una hoja recién creada por
+  este flujo y confirmar que `detectEtapaDefs` la reconoce sin ajustes.
+- Elegir una carpeta de "Compartido conmigo" sin permiso de escritura y
+  confirmar el mensaje de error (no un fallo silencioso).
+
 ## Fuera de alcance
 
 - Personalización de etapas al crear (nombres/cantidad distintos a los 5
@@ -187,3 +251,8 @@ Aplica a ambas implementaciones:
 - Paquete npm compartido entre los dos repos.
 - Migración retroactiva de series ya creadas a mano al nuevo formato.
 - Rollback automático de spreadsheets huérfanos ante fallas parciales.
+- Mobile/Android (`auth-native.js`) — la 5ª opción de creación no está
+  disponible corriendo en Capacitor en esta rama.
+- Sync en tiempo real de `users/{uid}.series` en scan-tracker-web (conectar
+  `onUserData`) — una serie creada desde TL2EDIT aparece recién en el
+  próximo login/reload de scan-tracker-web, no al instante.
