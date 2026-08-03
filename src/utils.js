@@ -7,6 +7,10 @@ export const uid = () => Math.random().toString(36).slice(2, 9);
 
 export const norm = (s) => (s || "").trim().toLowerCase();
 
+// Prioridad de capítulo que todavía no tiene el original — no cuenta como
+// pendiente (aunque esté asignado), no tiene trabajo real todavía.
+export const PRIO_ESPERANDO_CAPITULO = "ESPERANDO CAPÍTULO";
+
 export const isMyAlias = (n, aliases) => n && aliases.some((a) => norm(a) === norm(n));
 
 export function fmtDur(ms) {

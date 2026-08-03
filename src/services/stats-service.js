@@ -1,5 +1,6 @@
 import { esMio } from "../state/store.js";
 import { etapasDe } from "./etapas-service.js";
+import { PRIO_ESPERANDO_CAPITULO } from "../utils.js";
 
 // Capítulos "ocultos" (ej. sin raw todavía, plantilla a futuro): se marcan
 // por número de capítulo en sr.ocultos, NO en el capítulo mismo — el objeto
@@ -27,7 +28,7 @@ export function progreso(sr) {
 export function misPend(sr) {
   let n = 0;
   sr.chapters.forEach((c) => {
-    if (esOculto(sr, c)) return;
+    if (esOculto(sr, c) || c.prio === PRIO_ESPERANDO_CAPITULO) return;
     etapasDe(sr).forEach(([k]) => {
       if (esMio(c[k].who) && !c[k].done) n++;
     });
@@ -58,7 +59,7 @@ export function urgentesParaMi(sr) {
 export function esperando(sr) {
   const counts = new Map();
   sr.chapters.forEach((c) => {
-    if (esOculto(sr, c) || capCompleto(sr, c)) return;
+    if (esOculto(sr, c) || capCompleto(sr, c) || c.prio === PRIO_ESPERANDO_CAPITULO) return;
     if (!etapasDe(sr).some(([k]) => esMio(c[k].who) && c[k].done)) return;
     const next = etapasDe(sr).find(([k]) => !c[k].done);
     if (next) counts.set(next[1], (counts.get(next[1]) || 0) + 1);
@@ -83,7 +84,7 @@ export function cargaPorPersona(series) {
   const counts = new Map();
   series.forEach((sr) => {
     sr.chapters.forEach((c) => {
-      if (esOculto(sr, c)) return;
+      if (esOculto(sr, c) || c.prio === PRIO_ESPERANDO_CAPITULO) return;
       etapasDe(sr).forEach(([k]) => {
         const who = (c[k].who || "").trim();
         if (who && !c[k].done) counts.set(who, (counts.get(who) || 0) + 1);

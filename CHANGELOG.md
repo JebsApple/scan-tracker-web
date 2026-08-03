@@ -1,5 +1,16 @@
 # Changelog
 
+## v2.5.2
+
+📋 Scan Tracker v2.5.2 —
+Lo nuevo:
+
+**La prioridad "Esperando capítulo"**
+
+Cuando un capítulo todavía no tiene el original, puedes marcarlo con la prioridad "Esperando capítulo". Se ve con un color propio y participa del orden por urgencia.
+
+---
+
 ## v2.4.2
 
 📋 Scan Tracker v2.4.2 —

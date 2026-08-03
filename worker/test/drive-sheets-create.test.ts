@@ -114,7 +114,7 @@ describe('createSeriesSheet', () => {
     });
     expect(addTable.columnProperties[1].dataValidationRule.condition.type).toBe('ONE_OF_LIST');
     expect(addTable.columnProperties[1].dataValidationRule.condition.values.map((v) => v.userEnteredValue)).toEqual([
-      'URGENTE', 'MODERADO', 'A TU TIEMPO', 'LISTO',
+      'URGENTE', 'MODERADO', 'A TU TIEMPO', 'LISTO', 'ESPERANDO CAPÍTULO',
     ]);
     // columnas quién: DROPDOWN con los aliases.
     for (const i of WHO_COLUMNS) {

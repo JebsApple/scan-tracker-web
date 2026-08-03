@@ -54,6 +54,7 @@ td.cap{font-family:var(--mono);font-weight:700;font-size:13px}
 .prio.MODERADO{background:rgba(245,183,61,.14);color:var(--warn)}
 .prio.ATU{background:rgba(139,135,148,.15);color:var(--mut)}
 .prio.LISTO{background:rgba(61,220,132,.15);color:var(--ok)}
+.prio.ESPERANDO{background:rgba(90,150,220,.15);color:#8ab8ff}
 .stage{display:flex;align-items:center;gap:7px;min-width:120px}
 .stage input[type=text]{width:92px;padding:4px 7px;font-size:12px;background:transparent;border-color:transparent}
 .stage input[type=text]:hover{border-color:var(--line)}
