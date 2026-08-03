@@ -13,11 +13,14 @@
 // spreadsheets. drive.appdata: carpeta privada de la app en el Drive del
 // usuario, para sincronizar qué series/alias tiene registrados entre
 // dispositivos (ver services/cloud-sync-service.js) — no accede a archivos
-// normales del usuario. Son scopes "sensibles" en Google Cloud Console: hay
-// que habilitar Google Drive API y agregarlos en la pantalla de
-// consentimiento OAuth (y agregar test users si la app no está verificada).
+// normales del usuario.
+// drive.readonly + drive.file: agregados para "crear serie nueva en Drive"
+// (navegar carpetas reales y crear el spreadsheet ahí) — ver
+// docs/superpowers/specs/2026-08-01-crear-series-estandar-drive-design.md.
+// Sensibles igual que los de arriba: testers existentes deben re-aceptar el
+// consentimiento la próxima vez que hagan login.
 const SCOPES =
-  "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/drive.metadata.readonly https://www.googleapis.com/auth/drive.appdata";
+  "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/drive.metadata.readonly https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.file";
 
 // URL del Worker después de `wrangler deploy` (ver worker/README.md).
 // Reemplazar por la URL real (o el dominio custom que le pongas al Worker).
@@ -99,6 +102,14 @@ export async function getAccessToken() {
   } catch {
     return requestToken();
   }
+}
+
+/** Fuerza que la próxima llamada a getAccessToken() pida un token nuevo en
+ * vez de reusar el cacheado — necesario cuando un 403 indica que el token
+ * vivo no tiene el scope requerido (getAccessToken solo revalida por
+ * expiración de tiempo, nunca por scope). */
+export function invalidateToken() {
+  currentToken = null;
 }
 
 export function isSignedIn() {

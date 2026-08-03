@@ -16,7 +16,7 @@ function gidFromUrl(url) {
   return m ? Number(m[1]) : null;
 }
 
-async function authedFetch(url, options = {}) {
+export async function authedFetch(url, options = {}) {
   const token = await getAccessToken();
   const res = await fetch(url, {
     ...options,

@@ -97,6 +97,11 @@ export async function fetchSheet(sr) {
 }
 
 /* ============ NOTIFICACIONES DE DESIGNACIÓN ============ */
+// icon: PNG, no el favicon.svg — los navegadores basados en Chromium no
+// renderizan bien SVG como ícono de notificación nativa (queda el cuadro a
+// cuadros de "imagen rota" en vez del logo).
+const NOTIFICATION_ICON = "/notification-icon.png";
+
 export function notifyDesignation(serieName, capNum, etapaLabel) {
   const title = "Te asignaron un capítulo";
   const body = `${serieName} — Cap. ${capNum} (${etapaLabel})`;
@@ -105,7 +110,7 @@ export function notifyDesignation(serieName, capNum, etapaLabel) {
     return;
   }
   if (Notification.permission === "granted") {
-    new Notification(title, { body });
+    new Notification(title, { body, icon: NOTIFICATION_ICON });
     return;
   }
   if (Notification.permission === "denied") {
@@ -114,7 +119,7 @@ export function notifyDesignation(serieName, capNum, etapaLabel) {
   }
   Notification.requestPermission()
     .then((perm) => {
-      if (perm === "granted") new Notification(title, { body });
+      if (perm === "granted") new Notification(title, { body, icon: NOTIFICATION_ICON });
       else toast(`${title}: ${body}`);
     })
     .catch(() => toast(`${title}: ${body}`));

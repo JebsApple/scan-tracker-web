@@ -5,9 +5,11 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
+    "test": "vitest run",
     "secret:client-secret": "wrangler secret put GOOGLE_CLIENT_SECRET"
   },
   "devDependencies": {
+    "vitest": "^3.2.7",
     "wrangler": "^4.0.0"
   }
 }

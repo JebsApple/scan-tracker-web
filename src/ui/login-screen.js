@@ -1,6 +1,6 @@
 // Login/Register screen — DOM overlay shown when no user is authenticated.
 import { registerEmail, loginEmail, resetPassword, logoutEmail, onAuthChange } from "../repositories/auth-email.js";
-import { TESTER_EMAILS } from "../repositories/firebase-config.js";
+import { auth } from "../repositories/firebase-config.js";
 import { saveUserData, loadUserData } from "../repositories/user-data.js";
 import { isSignedIn } from "../repositories/auth-facade.js";
 import { toast } from "./toast.js";
@@ -79,10 +79,12 @@ function showVerify(email) {
       </div>
     </div>`;
   overlay.querySelector("#authResend").onclick = async () => {
+    // La sesión de Firebase quedó activa al registrarse (createUserWithEmailAndPassword
+    // la deja seteada) — reenviar el correo desde el usuario actual, sin
+    // intentar un login con contraseña vacía (que siempre fallaba).
+    const u = auth.currentUser;
+    if (!u) { toast("No se pudo reenviar"); return; }
     try {
-      const user = (await import("./firebase-config.js")).then(m => m.auth.currentUser);
-      // re-login to get user
-      const u = await loginEmail(email, overlay.querySelector("#authPass")?.value || "");
       await u.sendEmailVerification();
       toast("Correo reenviado");
     } catch { toast("No se pudo reenviar"); }

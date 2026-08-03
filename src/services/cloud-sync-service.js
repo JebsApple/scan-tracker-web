@@ -16,7 +16,12 @@ function syncableSeries() {
 
 export async function pushCloudState() {
   try {
-    await uploadSyncData({ series: syncableSeries(), aliases: S.aliases, updatedAt: new Date().toISOString() });
+    await uploadSyncData({
+      series: syncableSeries(),
+      aliases: S.aliases,
+      primaryAlias: S.primaryAlias,
+      updatedAt: new Date().toISOString(),
+    });
   } catch (e) {
     logEvent("Sync a la nube fallido", friendlyError(e));
   }
@@ -52,8 +57,13 @@ export async function pullCloudState() {
       localAliasesNorm.add(norm);
     }
   });
+  let primaryAliasAdopted = false;
+  if (!S.primaryAlias && remote.primaryAlias) {
+    S.primaryAlias = remote.primaryAlias;
+    primaryAliasAdopted = true;
+  }
 
-  if (added) save();
+  if (added || primaryAliasAdopted) save();
   return added;
 }
 
@@ -73,7 +83,7 @@ export async function pushFirestoreState() {
   const id = fbUid();
   if (!id) return;
   try {
-    await saveFS(id, { series: syncableSeries(), aliases: S.aliases });
+    await saveFS(id, { series: syncableSeries(), aliases: S.aliases, primaryAlias: S.primaryAlias });
   } catch (e) {
     logEvent("Sync Firestore fallido", friendlyError(e));
   }
@@ -109,8 +119,13 @@ export async function pullFirestoreState() {
       localAN.add(norm);
     }
   });
+  let primaryAliasAdopted = false;
+  if (!S.primaryAlias && remote.primaryAlias) {
+    S.primaryAlias = remote.primaryAlias;
+    primaryAliasAdopted = true;
+  }
 
-  if (added) save();
+  if (added || primaryAliasAdopted) save();
   return added;
 }
 

@@ -22,7 +22,6 @@ import { pullCloudState, pullFirestoreState, pushFirestoreState } from "./servic
 import { onAuthChange, getCurrentUser, linkGoogleToFirebase } from "./repositories/auth-email.js";
 import { loadUserData, saveUserData } from "./repositories/user-data.js";
 import { showLoginScreen, hideLoginScreen, showCheckingSession } from "./ui/login-screen.js";
-import { TESTER_EMAILS } from "./repositories/firebase-config.js";
 
 // ── Auth: login screen + Firebase Auth listener ────────────────────
 // Arranca en "Reconectando…" en vez del formulario completo: tanto

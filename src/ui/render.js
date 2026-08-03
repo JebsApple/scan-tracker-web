@@ -79,9 +79,13 @@ export function render() {
       const cells = etapas
         .map(([k]) => {
           const st = c[k], me = esMio(st.who);
+          const claimBtn = !st.who && S.primaryAlias
+            ? `<button class="claimWho" title="Asignarme (${esc(S.primaryAlias)})" data-claimwho="${sr.id}|${c.id}|${k}">${icon("plus")}</button>`
+            : "";
           return `<td><div class="stage">
         <button class="ck ${st.done ? "done" : me ? "pend-me" : ""}" title="${st.done ? "Listo" : "Pendiente"}" data-tg="${sr.id}|${c.id}|${k}">${st.done ? icon("check") : ""}</button>
         <input type="text" class="${me ? "me" : ""}" value="${esc(st.who)}" placeholder="—" data-who="${sr.id}|${c.id}|${k}">
+        ${claimBtn}
       </div></td>`;
         })
         .join("");
@@ -276,6 +280,11 @@ export function wireRenderEvents() {
     if (el) return addCap(el.dataset.addcap);
     el = e.target.closest("[data-delserie]");
     if (el) return delSerie(el.dataset.delserie);
+    el = e.target.closest("[data-claimwho]");
+    if (el) {
+      const [s, c, k] = el.dataset.claimwho.split("|");
+      return setWho(s, c, k, S.primaryAlias);
+    }
   });
   document.getElementById("content").addEventListener("change", (e) => {
     const el = e.target.closest("[data-who]");

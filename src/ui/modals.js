@@ -6,6 +6,7 @@ import {
   signOut as gSignOut,
   fetchEmail,
   DEFAULT_CLIENT_ID,
+  invalidateToken,
 } from "../repositories/auth-facade.js";
 import { listSheetTabs, listSharedSheets } from "../repositories/sheets-repository.js";
 import { fetchSheet, checkDesignations, syncAll } from "../services/sync-service.js";
@@ -13,10 +14,13 @@ import { pullCloudState, pushCloudState, pushUserData } from "../services/cloud-
 import { etapasDe, csvToChapters, nuevoCap } from "../services/etapas-service.js";
 import { esOculto, capCompleto, esperandoGlobal, cargaPorPersona } from "../services/stats-service.js";
 import { PRIOS, prioClass } from "../services/filters-service.js";
-import { esc, uid, fmtDur, friendlyError, parseCSV } from "../utils.js";
+import { esc, uid, fmtDur, friendlyError, parseCSV, norm } from "../utils.js";
 import { icon } from "./icons.js";
 import { toast } from "./toast.js";
-import { linkGoogleToFirebase } from "../repositories/auth-email.js";
+import { linkGoogleToFirebase, logoutEmail } from "../repositories/auth-email.js";
+import { TESTER_EMAILS } from "../repositories/firebase-config.js";
+import { createSeriesSheet } from "../repositories/drive-sheets-create.js";
+import { openDriveFolderPicker } from "./drive-folder-picker.js";
 import { selSerie, render } from "./render.js";
 
 const ovl = document.getElementById("ovl"), modal = document.getElementById("modal");
@@ -78,7 +82,18 @@ export async function connectGoogle() {
     const token = await requestToken();
     // Una sola conexión de Google abre las dos sesiones: la de Sheets y la de
     // Firebase (que es la que necesitan las reglas de Firestore).
-    await linkGoogleToFirebase(token);
+    const fbUser = await linkGoogleToFirebase(token);
+    // Allowlist de testers: el botón de Google es solo para las cuentas
+    // listadas en firebase-config.js. Cualquier otra se desloguea en el acto
+    // (GIS + Firebase) y la pantalla de login queda abierta — el comentario
+    // de firebase-config.js decía esto pero nadie lo validaba.
+    const email = (fbUser?.email || "").trim().toLowerCase();
+    if (!TESTER_EMAILS.includes(email)) {
+      gSignOut();
+      await logoutEmail();
+      toast("Tu cuenta no está en la lista de testers.");
+      return false;
+    }
     await refreshGoogleSession();
     toast("Sesión iniciada");
     const added = await pullCloudState();
@@ -96,19 +111,37 @@ export function modalAliases() {
   openM(`<h3>Mis nombres</h3>
   <div class="fld"><label>Alias con los que apareces en las hojas</label>
   <div style="display:flex;gap:8px"><input id="aliasIn" placeholder="ingresa tu alias"><button class="btn red" id="aliasAdd">Agregar</button></div>
-  <div class="hint">Puedes pegar varios separados por coma. Se usan para el filtro "Mis tareas" (no distingue mayúsculas).</div>
+  <div class="hint">Puedes pegar varios separados por coma. Se usan para el filtro "Mis tareas" (no distingue mayúsculas). Marca uno con ★ como <b>apodo principal</b>: es el único que se precarga en las columnas "quién" al crear una serie nueva en Drive (desde acá o desde TL2EDIT) — los demás los vas agregando vos a mano en la hoja.</div>
   <div class="tagrow" id="aliasTags"></div></div>
   <div class="mrow"><button class="btn" id="aliasClose">Cerrar</button></div>`);
   const draw = () => {
     document.getElementById("aliasTags").innerHTML = S.aliases
-      .map((a, i) => `<span class="tag">${esc(a)}<button data-i="${i}" class="delAliasBtn">${icon("x")}</button></span>`)
+      .map((a, i) => {
+        const primary = S.primaryAlias && norm(a) === norm(S.primaryAlias);
+        return `<span class="tag${primary ? " tagPrimary" : ""}">
+          <button data-i="${i}" class="starAliasBtn" title="${primary ? "Apodo principal" : "Marcar como principal"}">${primary ? "★" : "☆"}</button>
+          ${esc(a)}
+          <button data-i="${i}" class="delAliasBtn">${icon("x")}</button>
+        </span>`;
+      })
       .join("");
   };
   document.getElementById("aliasClose").onclick = closeM;
   document.getElementById("aliasTags").onclick = (e) => {
+    const star = e.target.closest(".starAliasBtn");
+    if (star) {
+      const a = S.aliases[Number(star.dataset.i)];
+      S.primaryAlias = S.primaryAlias && norm(S.primaryAlias) === norm(a) ? "" : a;
+      save();
+      draw();
+      render(); // refresca la tabla de capítulos: aparecen/desaparecen los botones de "asignarme"
+      pushUserData();
+      return;
+    }
     const b = e.target.closest(".delAliasBtn");
     if (!b) return;
-    S.aliases.splice(Number(b.dataset.i), 1);
+    const [removed] = S.aliases.splice(Number(b.dataset.i), 1);
+    if (removed && S.primaryAlias && norm(removed) === norm(S.primaryAlias)) S.primaryAlias = "";
     save();
     draw();
     render();
@@ -312,6 +345,7 @@ export function modalSerie() {
   <div class="fld"><label>Fuente</label><select id="snSrc">
     <option value="manual">Manual (vacía)</option>
     <option value="gsheet">Google Sheets (vinculada, se sincroniza)</option>
+    <option value="drive">Crear hoja nueva en Drive</option>
     <option value="paste">Pegar CSV</option>
     <option value="file">Archivo CSV local</option></select></div>
   <div class="fld" id="snUrlF" style="display:none"><label>URL de la hoja</label>
@@ -321,13 +355,19 @@ export function modalSerie() {
     <select id="snTabsSel" style="display:none;margin-top:8px"></select>
     <div class="hint">Con sesión de Google iniciada funciona con hojas <b>privadas</b> (las que tu cuenta puede ver) y los cambios se escriben de vuelta. Sin sesión, la hoja debe ser pública y agregar #gid= a mano si no es la primera pestaña. Se re-sincroniza cada 5 min y con ${icon("refresh-cw")}.</div></div>
   <div class="fld" id="snPasteF" style="display:none"><label>CSV (con encabezado Capítulos,Prioridad,TRADUCCIÓN,LISTO,...)</label><textarea id="snPaste"></textarea></div>
-  <div class="fld" id="snNF"><label>Capítulos iniciales</label><input id="snN" type="number" value="10" min="0"></div>
+  <div class="fld" id="snDriveF" style="display:none"><label>Carpeta en Drive</label>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn" id="snDriveFolderBtn" type="button">Elegir carpeta</button>
+      <span id="snDriveFolderName" class="hint">Ninguna elegida</span>
+    </div></div>
+  <div class="fld" id="snNF"><label>Capítulos iniciales</label><input id="snN" type="number" value="10" min="0" max="2000"></div>
   <div class="mrow"><button class="btn" id="snCancel">Cancelar</button><button class="btn red" id="snOk">Crear</button></div>`);
   const src = document.getElementById("snSrc");
   src.onchange = () => {
     document.getElementById("snUrlF").style.display = src.value === "gsheet" ? "" : "none";
     document.getElementById("snPasteF").style.display = src.value === "paste" ? "" : "none";
-    document.getElementById("snNF").style.display = src.value === "manual" ? "" : "none";
+    document.getElementById("snDriveF").style.display = src.value === "drive" ? "" : "none";
+    document.getElementById("snNF").style.display = (src.value === "manual" || src.value === "drive") ? "" : "none";
     if (src.value === "file") document.getElementById("csvFile").click();
   };
   document.getElementById("snCancel").onclick = closeM;
@@ -387,31 +427,82 @@ export function modalSerie() {
     rd.readAsText(f);
     e.target.value = "";
   };
+  let pendingDriveFolderId = null;
+  document.getElementById("snDriveFolderBtn").onclick = () => {
+    openDriveFolderPicker({
+      onPick: (folderId) => {
+        pendingDriveFolderId = folderId;
+        document.getElementById("snDriveFolderName").textContent = "Carpeta elegida ✓";
+      },
+    });
+  };
+  // Helpers del flujo "Nueva serie" que dependen del DOM del modal (se arma
+  // en el openM de arriba). cargarDesdeCSV y crearSerieDrive no tocan el DOM
+  // y quedan a nivel de módulo, al final del archivo.
+
+  function cargarManual(sr) {
+    const n = +document.getElementById("snN").value || 0;
+    for (let i = 1; i <= n; i++) sr.chapters.push(nuevoCap(String(i), sr));
+  }
+
+  async function cargarDesdeHoja(sr) {
+    sr.sheetUrl = document.getElementById("snUrl").value.trim();
+    try {
+      await fetchSheet(sr);
+      checkDesignations(sr);
+    } catch (e) {
+      toast("No se pudo leer la hoja: " + friendlyError(e));
+    }
+  }
+
+  // Valida el formulario de la fuente "drive" y crea/vincula la hoja.
+  // Retorna true si quedó creada; false si hubo error (ya mostró el toast).
+  async function crearSerieDriveDesdeForm(sr, name) {
+    if (!pendingDriveFolderId) {
+      toast("Elegí una carpeta de Drive primero");
+      return false;
+    }
+    const n = +document.getElementById("snN").value || 0;
+    // La hoja se arma con una Table de Sheets que cubre chapterCount + 1
+    // filas — el rango válido es [1, 2000] (ver createSeriesSheet).
+    if (!Number.isInteger(n) || n < 1 || n > 2000) {
+      toast("La cantidad de capítulos debe ser un número entero entre 1 y 2000.");
+      return false;
+    }
+    try {
+      await crearSerieDrive(sr, { name, folderId: pendingDriveFolderId, chapterCount: n });
+      return true;
+    } catch (e) {
+      toast("No se pudo crear la hoja: " + friendlyError(e));
+      return false;
+    }
+  }
+
   document.getElementById("snOk").onclick = async () => {
     const name = document.getElementById("snName").value.trim();
     if (!name) return toast("Falta el nombre");
     const v = src.value;
+    // Nota (validación de duplicados, ver task-5-brief.md paso 6): no hay
+    // "sr.sheetUrl" todavía en este punto (se crea más abajo), y
+    // createSeriesSheet siempre genera un spreadsheetId nuevo, así que la
+    // colisión de sheetUrl es estructuralmente imposible en este flujo. Se
+    // deja documentado por si en el futuro se permite elegir un archivo
+    // existente en el picker en vez de crear uno nuevo.
     if (v === "file" && !pendingFileCSV) return toast("Seleccione un archivo CSV primero");
     const sr = { id: uid(), name, sheetUrl: null, chapters: [], ocultos: {} };
     if (v === "manual") {
-      const n = +document.getElementById("snN").value || 0;
-      for (let i = 1; i <= n; i++) sr.chapters.push(nuevoCap(String(i), sr));
+      cargarManual(sr);
     } else if (v === "gsheet") {
-      sr.sheetUrl = document.getElementById("snUrl").value.trim();
-      try {
-        await fetchSheet(sr);
-        checkDesignations(sr);
-      } catch (e) {
-        toast("No se pudo leer la hoja: " + friendlyError(e));
-      }
+      await cargarDesdeHoja(sr);
     } else if (v === "paste") {
-      const r = csvToChapters(parseCSV(document.getElementById("snPaste").value));
-      sr.chapters = r.chapters;
-      sr.etapaDefs = r.etapaDefs;
-    } else if (v === "file" && pendingFileCSV) {
-      const r = csvToChapters(parseCSV(pendingFileCSV));
-      sr.chapters = r.chapters;
-      sr.etapaDefs = r.etapaDefs;
+      cargarDesdeCSV(sr, document.getElementById("snPaste").value);
+    } else if (v === "drive") {
+      if (!(await crearSerieDriveDesdeForm(sr, name))) return;
+      pendingDriveFolderId = null;
+    } else if (v === "file") {
+      // El early return de arriba ya garantiza que pendingFileCSV existe
+      // cuando v === "file", así que no se re-verifica aquí.
+      cargarDesdeCSV(sr, pendingFileCSV);
       pendingFileCSV = null;
     }
     S.series.push(sr);
@@ -421,4 +512,38 @@ export function modalSerie() {
     closeM();
     if (sr.sheetUrl) pushUserData();
   };
+}
+
+// Helpers del flujo "Nueva serie" que no dependen del DOM del modal. Se
+// sacaron del closure de modalSerie para no re-crearlos en cada apertura
+// (SonarCloud S7721); usan solo imports del módulo, así que no reciben
+// variables locales de modalSerie.
+function cargarDesdeCSV(sr, texto) {
+  const r = csvToChapters(parseCSV(texto));
+  sr.chapters = r.chapters;
+  sr.etapaDefs = r.etapaDefs;
+}
+
+// Crea la hoja en Drive y la vincula a `sr`. Solo el apodo principal, no
+// todos los alias — el resto los agrega el usuario a mano en la hoja según
+// haga falta (ver modalAliases). Si Google responde 403 (token vencido),
+// invalida el token, re-autentica y reintenta una sola vez.
+async function crearSerieDrive(sr, { name, folderId, chapterCount }) {
+  const crear = async () => {
+    const { url } = await createSeriesSheet({
+      name, folderId, chapterCount,
+      names: S.primaryAlias ? [S.primaryAlias] : [],
+    });
+    sr.sheetUrl = url;
+    await fetchSheet(sr);
+    checkDesignations(sr);
+  };
+  try {
+    await crear();
+  } catch (e) {
+    if (e.status !== 403) throw e;
+    invalidateToken();
+    await requestToken();
+    await crear();
+  }
 }
