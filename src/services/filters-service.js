@@ -1,9 +1,9 @@
-import { norm } from "../utils.js";
+import { norm, PRIO_ESPERANDO_CAPITULO } from "../utils.js";
 import { etapasDe } from "./etapas-service.js";
 import { capCompleto } from "./stats-service.js";
 
-export const PRIOS = ["URGENTE", "MODERADO", "A TU TIEMPO", "LISTO", "ESPERANDO CAPÍTULO"];
-const PRIO_CLASS = { URGENTE: "URGENTE", MODERADO: "MODERADO", LISTO: "LISTO", "ESPERANDO CAPÍTULO": "ESPERANDO" };
+export const PRIOS = ["URGENTE", "MODERADO", "A TU TIEMPO", "LISTO", PRIO_ESPERANDO_CAPITULO];
+const PRIO_CLASS = { URGENTE: "URGENTE", MODERADO: "MODERADO", LISTO: "LISTO", [PRIO_ESPERANDO_CAPITULO]: "ESPERANDO" };
 export const prioClass = (p) => PRIO_CLASS[p] ?? "ATU";
 
 export function etapasVisibles(sr, filters) {
@@ -13,7 +13,7 @@ export function etapasVisibles(sr, filters) {
 export function filtrarCapitulos(sr, etapas, filters) {
   let chs = sr.chapters.filter((c) => {
     if (filters.prio && c.prio !== filters.prio) return false;
-    if (filters.estado === "pend" && capCompleto(sr, c)) return false;
+    if (filters.estado === "pend" && (capCompleto(sr, c) || c.prio === PRIO_ESPERANDO_CAPITULO)) return false;
     if (filters.estado === "done" && !capCompleto(sr, c)) return false;
     const b = norm(filters.busca);
     if (b && !etapas.some(([k]) => norm(c[k].who).includes(b))) return false;
