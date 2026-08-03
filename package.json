@@ -1,6 +1,6 @@
 {
   "name": "scan-tracker-web",
-  "version": "1.4.2",
+  "version": "2.4.2",
   "description": "Tracker de scanlation (traducción, limpieza, typeset, corrección, sube) sincronizado con Google Sheets — directo desde el browser, sin backend, sin instalación.",
   "main": "index.js",
   "scripts": {

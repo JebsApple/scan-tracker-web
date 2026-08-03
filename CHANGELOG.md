@@ -1,8 +1,8 @@
 # Changelog
 
-## v1.4.2
+## v2.4.2
 
-📋 Scan Tracker v1.4.2 —
+📋 Scan Tracker v2.4.2 —
 Lo nuevo:
 
 **Inicia sesión con Google**
