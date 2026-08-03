@@ -6,6 +6,7 @@ import {
   signOut as gSignOut,
   fetchEmail,
   DEFAULT_CLIENT_ID,
+  invalidateToken,
 } from "../repositories/auth-facade.js";
 import { listSheetTabs, listSharedSheets } from "../repositories/sheets-repository.js";
 import { fetchSheet, checkDesignations, syncAll } from "../services/sync-service.js";
@@ -18,7 +19,6 @@ import { icon } from "./icons.js";
 import { toast } from "./toast.js";
 import { linkGoogleToFirebase, logoutEmail } from "../repositories/auth-email.js";
 import { TESTER_EMAILS } from "../repositories/firebase-config.js";
-import { invalidateToken } from "../repositories/auth-facade.js";
 import { createSeriesSheet } from "../repositories/drive-sheets-create.js";
 import { openDriveFolderPicker } from "./drive-folder-picker.js";
 import { selSerie, render } from "./render.js";
@@ -87,7 +87,7 @@ export async function connectGoogle() {
     // listadas en firebase-config.js. Cualquier otra se desloguea en el acto
     // (GIS + Firebase) y la pantalla de login queda abierta — el comentario
     // de firebase-config.js decía esto pero nadie lo validaba.
-    const email = ((fbUser && fbUser.email) || "").trim().toLowerCase();
+    const email = (fbUser?.email || "").trim().toLowerCase();
     if (!TESTER_EMAILS.includes(email)) {
       gSignOut();
       await logoutEmail();
@@ -436,6 +436,78 @@ export function modalSerie() {
       },
     });
   };
+  // Helpers del flujo "Nueva serie" — extraídos del handler de snOk para
+  // mantener la complejidad del modal a raya. Solo se usan desde acá (el DOM
+  // que tocan se arma en el openM de arriba).
+
+  function cargarManual(sr) {
+    const n = +document.getElementById("snN").value || 0;
+    for (let i = 1; i <= n; i++) sr.chapters.push(nuevoCap(String(i), sr));
+  }
+
+  async function cargarDesdeHoja(sr) {
+    sr.sheetUrl = document.getElementById("snUrl").value.trim();
+    try {
+      await fetchSheet(sr);
+      checkDesignations(sr);
+    } catch (e) {
+      toast("No se pudo leer la hoja: " + friendlyError(e));
+    }
+  }
+
+  function cargarDesdeCSV(sr, texto) {
+    const r = csvToChapters(parseCSV(texto));
+    sr.chapters = r.chapters;
+    sr.etapaDefs = r.etapaDefs;
+  }
+
+  // Crea la hoja en Drive y la vincula a `sr`. Solo el apodo principal, no
+  // todos los alias — el resto los agrega el usuario a mano en la hoja según
+  // haga falta (ver modalAliases). Si Google responde 403 (token vencido),
+  // invalida el token, re-autentica y reintenta una sola vez.
+  async function crearSerieDrive(sr, { name, folderId, chapterCount }) {
+    const crear = async () => {
+      const { url } = await createSeriesSheet({
+        name, folderId, chapterCount,
+        names: S.primaryAlias ? [S.primaryAlias] : [],
+      });
+      sr.sheetUrl = url;
+      await fetchSheet(sr);
+      checkDesignations(sr);
+    };
+    try {
+      await crear();
+    } catch (e) {
+      if (e.status !== 403) throw e;
+      invalidateToken();
+      await requestToken();
+      await crear();
+    }
+  }
+
+  // Valida el formulario de la fuente "drive" y crea/vincula la hoja.
+  // Retorna true si quedó creada; false si hubo error (ya mostró el toast).
+  async function crearSerieDriveDesdeForm(sr, name) {
+    if (!pendingDriveFolderId) {
+      toast("Elegí una carpeta de Drive primero");
+      return false;
+    }
+    const n = +document.getElementById("snN").value || 0;
+    // La hoja se arma con una Table de Sheets que cubre chapterCount + 1
+    // filas — el rango válido es [1, 2000] (ver createSeriesSheet).
+    if (!Number.isInteger(n) || n < 1 || n > 2000) {
+      toast("La cantidad de capítulos debe ser un número entero entre 1 y 2000.");
+      return false;
+    }
+    try {
+      await crearSerieDrive(sr, { name, folderId: pendingDriveFolderId, chapterCount: n });
+      return true;
+    } catch (e) {
+      toast("No se pudo crear la hoja: " + friendlyError(e));
+      return false;
+    }
+  }
+
   document.getElementById("snOk").onclick = async () => {
     const name = document.getElementById("snName").value.trim();
     if (!name) return toast("Falta el nombre");
@@ -449,60 +521,18 @@ export function modalSerie() {
     if (v === "file" && !pendingFileCSV) return toast("Seleccione un archivo CSV primero");
     const sr = { id: uid(), name, sheetUrl: null, chapters: [], ocultos: {} };
     if (v === "manual") {
-      const n = +document.getElementById("snN").value || 0;
-      for (let i = 1; i <= n; i++) sr.chapters.push(nuevoCap(String(i), sr));
+      cargarManual(sr);
     } else if (v === "gsheet") {
-      sr.sheetUrl = document.getElementById("snUrl").value.trim();
-      try {
-        await fetchSheet(sr);
-        checkDesignations(sr);
-      } catch (e) {
-        toast("No se pudo leer la hoja: " + friendlyError(e));
-      }
+      await cargarDesdeHoja(sr);
     } else if (v === "paste") {
-      const r = csvToChapters(parseCSV(document.getElementById("snPaste").value));
-      sr.chapters = r.chapters;
-      sr.etapaDefs = r.etapaDefs;
+      cargarDesdeCSV(sr, document.getElementById("snPaste").value);
     } else if (v === "drive") {
-      if (!pendingDriveFolderId) return toast("Elegí una carpeta de Drive primero");
-      const n = +document.getElementById("snN").value || 0;
-      // La hoja se arma con una Table de Sheets que cubre chapterCount + 1
-      // filas — el rango válido es [1, 2000] (ver createSeriesSheet).
-      if (!Number.isInteger(n) || n < 1 || n > 2000) {
-        return toast("La cantidad de capítulos debe ser un número entero entre 1 y 2000.");
-      }
-      // Solo el apodo principal, no todos los alias — el resto los agrega el
-      // usuario a mano en la hoja según haga falta (ver modalAliases).
-      const create = () => createSeriesSheet({
-        name, folderId: pendingDriveFolderId, chapterCount: n,
-        names: S.primaryAlias ? [S.primaryAlias] : [],
-      });
-      try {
-        const { url } = await create();
-        sr.sheetUrl = url;
-        await fetchSheet(sr);
-        checkDesignations(sr);
-      } catch (e) {
-        if (e.status === 403) {
-          invalidateToken();
-          try {
-            await requestToken();
-            const { url } = await create();
-            sr.sheetUrl = url;
-            await fetchSheet(sr);
-            checkDesignations(sr);
-          } catch (e2) {
-            return toast("No se pudo crear la hoja: " + friendlyError(e2));
-          }
-        } else {
-          return toast("No se pudo crear la hoja: " + friendlyError(e));
-        }
-      }
+      if (!(await crearSerieDriveDesdeForm(sr, name))) return;
       pendingDriveFolderId = null;
-    } else if (v === "file" && pendingFileCSV) {
-      const r = csvToChapters(parseCSV(pendingFileCSV));
-      sr.chapters = r.chapters;
-      sr.etapaDefs = r.etapaDefs;
+    } else if (v === "file") {
+      // El early return de arriba ya garantiza que pendingFileCSV existe
+      // cuando v === "file", así que no se re-verifica aquí.
+      cargarDesdeCSV(sr, pendingFileCSV);
       pendingFileCSV = null;
     }
     S.series.push(sr);

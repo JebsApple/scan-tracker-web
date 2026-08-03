@@ -40,7 +40,7 @@ const WHO_COLUMNS = [2, 4, 6, 8, 10];
 
 // Índices 0-based de las columnas "LISTO" (D,F,H,J,L) — checkbox real
 // (columnType BOOLEAN de la Table).
-const LISTO_COLUMNS = [3, 5, 7, 9, 11];
+const LISTO_COLUMNS = new Set([3, 5, 7, 9, 11]);
 
 // Opciones del dropdown de Prioridad (columna B). Cuatro valores, incluido
 // "LISTO" — el estado final de la columna en la hoja (el "LISTO" de filtros
@@ -79,7 +79,7 @@ export async function createSeriesSheet({ name, folderId, chapterCount, names = 
   });
   const spreadsheetId = created.spreadsheetId;
   const sheetProps = created.sheets?.[0]?.properties;
-  if (!sheetProps || sheetProps.sheetId == null || !sheetProps.title) {
+  if (sheetProps?.sheetId == null || !sheetProps?.title) {
     throw new Error("Google no devolvió la pestaña inicial del spreadsheet.");
   }
   const { sheetId, title } = sheetProps;
@@ -111,7 +111,7 @@ export async function createSeriesSheet({ name, folderId, chapterCount, names = 
           },
         };
       }
-      if (LISTO_COLUMNS.includes(columnIndex)) {
+      if (LISTO_COLUMNS.has(columnIndex)) {
         // Columnas LISTO: checkbox real. Enum válido es BOOLEAN, no
         // "CHECKBOX".
         return { columnIndex, columnName: "LISTO", columnType: "BOOLEAN" };
@@ -176,7 +176,7 @@ export async function createSeriesSheet({ name, folderId, chapterCount, names = 
     // 3. Escribir header + filas de capítulos reales (RAW: texto literal,
     //    nunca fórmula).
     const rows = [HEADER, ...Array.from({ length: chapterCount }, (_, i) => chapterRow(i + 1))];
-    const range = `'${title.replace(/'/g, "''")}'!A1:L${rows.length}`;
+    const range = `'${title.replaceAll("'", "''")}'!A1:L${rows.length}`;
     await authedFetch(
       `${SHEETS_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=RAW`,
       {

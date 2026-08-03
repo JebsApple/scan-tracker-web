@@ -3,8 +3,8 @@ import { etapasDe } from "./etapas-service.js";
 import { capCompleto } from "./stats-service.js";
 
 export const PRIOS = ["URGENTE", "MODERADO", "A TU TIEMPO", "LISTO"];
-export const prioClass = (p) =>
-  p === "URGENTE" ? "URGENTE" : p === "MODERADO" ? "MODERADO" : p === "LISTO" ? "LISTO" : "ATU";
+const PRIO_CLASS = { URGENTE: "URGENTE", MODERADO: "MODERADO", LISTO: "LISTO" };
+export const prioClass = (p) => PRIO_CLASS[p] ?? "ATU";
 
 export function etapasVisibles(sr, filters) {
   return filters.etapa ? etapasDe(sr).filter(([k]) => k === filters.etapa) : etapasDe(sr);
