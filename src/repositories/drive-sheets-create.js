@@ -85,7 +85,7 @@ export async function createSeriesSheet({ name, folderId, chapterCount, names = 
   const { sheetId, title } = sheetProps;
 
   // 2..3. Table + fila congelada + header en negrita (un solo batchUpdate)
-  //    y escribir los valores. Todo lo posterior a la creación va en
+  //    y escribir los valores. Lo que va después de la creación queda en
   //    try/catch: si algo falla, se borra la hoja recién creada
   //    (best-effort) para no dejar huérfanos en Drive.
   try {

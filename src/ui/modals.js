@@ -436,9 +436,9 @@ export function modalSerie() {
       },
     });
   };
-  // Helpers del flujo "Nueva serie" — extraídos del handler de snOk para
-  // mantener la complejidad del modal a raya. Solo se usan desde acá (el DOM
-  // que tocan se arma en el openM de arriba).
+  // Helpers del flujo "Nueva serie" que dependen del DOM del modal (se arma
+  // en el openM de arriba). cargarDesdeCSV y crearSerieDrive no tocan el DOM
+  // y quedan a nivel de módulo, al final del archivo.
 
   function cargarManual(sr) {
     const n = +document.getElementById("snN").value || 0;
@@ -452,36 +452,6 @@ export function modalSerie() {
       checkDesignations(sr);
     } catch (e) {
       toast("No se pudo leer la hoja: " + friendlyError(e));
-    }
-  }
-
-  function cargarDesdeCSV(sr, texto) {
-    const r = csvToChapters(parseCSV(texto));
-    sr.chapters = r.chapters;
-    sr.etapaDefs = r.etapaDefs;
-  }
-
-  // Crea la hoja en Drive y la vincula a `sr`. Solo el apodo principal, no
-  // todos los alias — el resto los agrega el usuario a mano en la hoja según
-  // haga falta (ver modalAliases). Si Google responde 403 (token vencido),
-  // invalida el token, re-autentica y reintenta una sola vez.
-  async function crearSerieDrive(sr, { name, folderId, chapterCount }) {
-    const crear = async () => {
-      const { url } = await createSeriesSheet({
-        name, folderId, chapterCount,
-        names: S.primaryAlias ? [S.primaryAlias] : [],
-      });
-      sr.sheetUrl = url;
-      await fetchSheet(sr);
-      checkDesignations(sr);
-    };
-    try {
-      await crear();
-    } catch (e) {
-      if (e.status !== 403) throw e;
-      invalidateToken();
-      await requestToken();
-      await crear();
     }
   }
 
@@ -542,4 +512,38 @@ export function modalSerie() {
     closeM();
     if (sr.sheetUrl) pushUserData();
   };
+}
+
+// Helpers del flujo "Nueva serie" que no dependen del DOM del modal. Se
+// sacaron del closure de modalSerie para no re-crearlos en cada apertura
+// (SonarCloud S7721); usan solo imports del módulo, así que no reciben
+// variables locales de modalSerie.
+function cargarDesdeCSV(sr, texto) {
+  const r = csvToChapters(parseCSV(texto));
+  sr.chapters = r.chapters;
+  sr.etapaDefs = r.etapaDefs;
+}
+
+// Crea la hoja en Drive y la vincula a `sr`. Solo el apodo principal, no
+// todos los alias — el resto los agrega el usuario a mano en la hoja según
+// haga falta (ver modalAliases). Si Google responde 403 (token vencido),
+// invalida el token, re-autentica y reintenta una sola vez.
+async function crearSerieDrive(sr, { name, folderId, chapterCount }) {
+  const crear = async () => {
+    const { url } = await createSeriesSheet({
+      name, folderId, chapterCount,
+      names: S.primaryAlias ? [S.primaryAlias] : [],
+    });
+    sr.sheetUrl = url;
+    await fetchSheet(sr);
+    checkDesignations(sr);
+  };
+  try {
+    await crear();
+  } catch (e) {
+    if (e.status !== 403) throw e;
+    invalidateToken();
+    await requestToken();
+    await crear();
+  }
 }
