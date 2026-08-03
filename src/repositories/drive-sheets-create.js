@@ -45,7 +45,7 @@ const LISTO_COLUMNS = new Set([3, 5, 7, 9, 11]);
 // Opciones del dropdown de Prioridad (columna B). Cuatro valores, incluido
 // "LISTO" — el estado final de la columna en la hoja (el "LISTO" de filtros
 // en filters-service.js es un estado de filtrado aparte, no una prioridad).
-const PRIORITY_VALUES = ["URGENTE", "MODERADO", "A TU TIEMPO", "LISTO"];
+const PRIORITY_VALUES = ["URGENTE", "MODERADO", "A TU TIEMPO", "LISTO", "ESPERANDO CAPÍTULO"];
 
 function chapterRow(num) {
   return [String(num), "URGENTE", "", "", "", "", "", "", "", "", "", ""];

@@ -2,8 +2,8 @@ import { norm } from "../utils.js";
 import { etapasDe } from "./etapas-service.js";
 import { capCompleto } from "./stats-service.js";
 
-export const PRIOS = ["URGENTE", "MODERADO", "A TU TIEMPO", "LISTO"];
-const PRIO_CLASS = { URGENTE: "URGENTE", MODERADO: "MODERADO", LISTO: "LISTO" };
+export const PRIOS = ["URGENTE", "MODERADO", "A TU TIEMPO", "LISTO", "ESPERANDO CAPÍTULO"];
+const PRIO_CLASS = { URGENTE: "URGENTE", MODERADO: "MODERADO", LISTO: "LISTO", "ESPERANDO CAPÍTULO": "ESPERANDO" };
 export const prioClass = (p) => PRIO_CLASS[p] ?? "ATU";
 
 export function etapasVisibles(sr, filters) {
