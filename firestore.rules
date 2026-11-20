@@ -3,12 +3,25 @@ rules_version = '2';
 // Modelo actual: cada usuario tiene un único documento con sus preferencias
 // (series vinculadas y aliases). Nadie lee ni escribe el de otro.
 //
-// Todo lo que no esté declarado acá queda denegado por defecto — cuando se
+// Todo lo que no esté declarado aquí queda denegado por defecto — cuando se
 // agreguen series compartidas hay que abrirlas explícitamente.
 service cloud.firestore {
   match /databases/{database}/documents {
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Catálogo compartido: qué hoja corresponde a qué rol de Discord.
+    // No otorga permisos — el acceso real a cada hoja lo da Google. Por eso
+    // cualquiera con sesión puede leerlo y mantenerlo (el scan trabaja por
+    // confianza; no hay jerarquía de líderes).
+    match /series/{seriesId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.name is string
+                    && request.resource.data.sheetUrl is string
+                    && request.resource.data.discordRoleId is string;
+      allow update, delete: if request.auth != null;
     }
   }
 }

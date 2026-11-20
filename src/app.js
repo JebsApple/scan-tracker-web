@@ -14,15 +14,30 @@ import {
   modalGoogle,
   modalSerie,
   modalMisPendientes,
+  modalDiscord,
   paintG,
   refreshGoogleSession,
   connectGoogle,
 } from "./ui/modals.js";
+import { discordConfigurado } from "./repositories/discord-config.js";
+import { consumeDiscordRedirect, refreshDiscordRoles, isDiscordSignedIn } from "./repositories/discord-auth.js";
+import { sincronizarSeriesDeDiscord } from "./services/discord-series-service.js";
 import { pullCloudState, pullFirestoreState, pushFirestoreState } from "./services/cloud-sync-service.js";
-import { onAuthChange, getCurrentUser } from "./repositories/auth-email.js";
+import { onAuthChange, getCurrentUser, linkGoogleToFirebase } from "./repositories/auth-email.js";
 import { loadUserData, saveUserData } from "./repositories/user-data.js";
 import { showLoginScreen, hideLoginScreen } from "./ui/login-screen.js";
 import { TESTER_EMAILS } from "./repositories/firebase-config.js";
+
+// ── Discord: capturar la vuelta del redirect ANTES de pintar nada ──
+// El token viene en el fragmento de la URL; consumeDiscordRedirect lo guarda y
+// deja la URL limpia para que no quede a la vista ni en el historial.
+if (discordConfigurado()) {
+  try {
+    await consumeDiscordRedirect();
+  } catch (e) {
+    toast("No se pudo conectar Discord: " + (e?.message || "error"));
+  }
+}
 
 // ── Auth: login screen + Firebase Auth listener ────────────────────
 showLoginScreen();
@@ -53,6 +68,7 @@ onAuthChange(async (user) => {
     }
     hideLoginScreen();
     fbUserReady = true;
+    await descubrirSeriesDeDiscord();
     await syncAll(false);
     render();
   } else if (user && !user.emailVerified) {
@@ -62,16 +78,39 @@ onAuthChange(async (user) => {
 
 // GIS silent login (para testers con Google OAuth)
 trySilentLogin()
-  .then(async () => {
+  .then(async (token) => {
+    await linkGoogleToFirebase(token);
     await refreshGoogleSession();
     await pullCloudState();
+    await descubrirSeriesDeDiscord();
     await syncAll(false);
     render();
     if (!fbUserReady) hideLoginScreen();
   })
   .catch(() => {});
 
-setInterval(() => syncAll(false).then(render), 5 * 60 * 1000); // auto-sync cada 5 min
+// Refresca los roles (pueden haber cambiado en Discord) y agrega las series
+// del catálogo que correspondan. Silencioso si Discord no está configurado o
+// el usuario no lo conectó.
+async function descubrirSeriesDeDiscord() {
+  if (!discordConfigurado() || !isDiscordSignedIn()) return;
+  try {
+    await refreshDiscordRoles();
+    const n = await sincronizarSeriesDeDiscord();
+    if (n) toast(`${n} serie(s) agregadas desde tus roles de Discord`);
+  } catch (e) {
+    toast("No se pudieron traer las series de Discord: " + (e?.message || "error"));
+  }
+}
+
+// Auto-sync cada 5 min. Los roles se releen en cada vuelta, no solo al abrir
+// la app: cuando un líder mete a alguien al rol de la serie en Discord, esa
+// persona ve la serie aparecer sin recargar ni volver a entrar.
+setInterval(async () => {
+  await descubrirSeriesDeDiscord();
+  await syncAll(false);
+  render();
+}, 5 * 60 * 1000);
 
 wireRenderEvents();
 
@@ -84,6 +123,11 @@ document.getElementById("bHist").onclick = modalHistorial;
 // abre el modal (ver cuenta / cerrar sesión), que sí amerita un paso extra.
 document.getElementById("bGoogle").onclick = () => (isSignedIn() ? modalGoogle() : connectGoogle());
 document.getElementById("bAddSerie").onclick = modalSerie;
+if (discordConfigurado()) {
+  const bd = document.getElementById("bDiscord");
+  bd.style.display = "";
+  bd.onclick = modalDiscord;
+}
 document.getElementById("bSync").onclick = () => syncAll(true).then(render);
 document.getElementById("bUndo").onclick = () => undo(render);
 document.getElementById("bRedo").onclick = () => redo(render);
